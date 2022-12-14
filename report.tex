@@ -6,6 +6,8 @@
 % Style settings
 \usepackage[utf8]{inputenc}
 \usepackage{microtype}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
 \addtokomafont{disposition}{\rmfamily}
 
 % Hack chapter layout - don't use in other papers!
@@ -28,10 +30,12 @@
             minalphanames=3, maxalphanames=4,
             maxbibnames=20]{biblatex} % to generate the bibliography
 \addbibresource{report.bib}           % name of the bib-file
+\addbibresource{main.bib}
 
 % Useful utils:
 %\usepackage{todonotes}               % add ToDo markers (\todo{...}, \todo[inline]{...})
-\usepackage[hidelinks]{hyperref}      % clickable links (but hide color frames around links)
+\usepackage[hidelinks]{hyperref}
+\usepackage{textcomp}      % clickable links (but hide color frames around links)
 %\usepackage{cleveref}                % named references (\Cref{chap:introduction}, ...)
 
 % Your own macros:
@@ -42,12 +46,13 @@
 
 %--- FRONT MATTER --------------------------------------------------------------
 
-\title{Title of the Report}
-\author{Firstname Lastname}
+\title{JavaSQIP}
+\subtitle{An application of a scheduler queue-based covert channel to JavaScript}
+\author{Christoph Royer}
 \date{Introduction to Scientific Working 2022/23\bigskip\bigskip}
 \publishers{\normalsize
   Supervisor:
-  Firstname Lastname
+  Stefan Gast
   \medskip\par
   Institute of Applied Information Processing and Communications\\
   Graz University of Technology
@@ -57,20 +62,24 @@
 \maketitle
 
 \chapter*{\centering\Large Abstract}
+The implementation of out-of-order execution has brought a big performance benefit to current CPUs.
+But with this benefit come also security concerns, since attackers can exploit the timing variations which are bound to occur in an out-of-order pipeline.
+Attacks which target only one execution unit through a separate scheduler queue -- as seen in the Apple M1 and AMD Zen 2 and Zen 3 microarchitectures -- have proven even more powerful than port contention on single-scheduler systems.
+As with any attack, porting this side channel to the web would greatly increase its reach and number of victims.
 
-Provide an abstract of your report (at most $\frac{1}{2}$ page for this report, typically 1 to 3 paragraphs).
+In this paper, we present the JavaSQUIP attack, which is a port of SQUIP~\cite{squip} to JavaScript.
+We look into the security measures used in common browsers to prevent timing attacks, and show how we worked around them successfully.
+Our covert channel can provide communication across separate browser instances at a speed of 1000 bits/s, which is faster than any current covert channel of this type.
 
-The abstract usually consists of two main parts: a motivational background and your contribution.
-Start with a few sentences of general introduction and background information to motivate your main research question/challenge.
-Then, summarize what your paper contributes and describe its (potential) impact.
-This includes a very short summary of all your important results and core performance numbers that characterize your approach/attack/countermeasure/implementation.
-Finally, summarize any key conclusions and calls to action that you have, e.g., apply the idea more broadly, get rid of some technology, find a countermeasure, or similar.
+JavaSQUIP makes it clear that current browsers have not yet been able to adapt to be secure in light of the ever increasing complexity of modern CPUs.
+Our findings suggest that making these attacks impossible may not even be feasible because the drawbacks in performance and features would be too large.
+
 
 \paragraph{Keywords:}
-Broad keyword $\cdot$
-Keyword $\cdot$
-Specific keyword $\cdot$
-Another specific keyword
+Covert channel $\cdot$
+Single-queue port contention $\cdot$
+JavaScript $\cdot$
+AMD Zen
 
 \clearpage
 
@@ -78,142 +87,163 @@ Another specific keyword
 %--- INTRODUCTION --------------------------------------------------------------
 
 \chapter{Introduction}
-\label{chap:introduction}
+\label{ch:introduction}
 
-Provide an introduction to your work (typically 1 to 2 pages, but can also be more for your full thesis).
-For this short ISW report, focus on \textbf{Introduction + Background + Conclusion} and cover them it at least \textbf{4 pages} (excluding the titlepage/abstract and bibliography).
+Nowadays, CPU manufacturers are in a lasting battle against each other to make their product faster and faster.
+One of the ways this is achieved is out-of-order execution, where instructions are not executed in the order given by the binary, but rather as soon as their respective dependencies are ready.
+This toes the line of breaking the hardware-software contract, and though it is ensured that the program is executed correctly, security suffers under this shortcut.
 
-The introduction is structured like a longer version of the abstract.
-You start with a paragraph or two of general background, getting more and more specific, and culminating in a clear motivation for your main research problem or thesis goal.
-This should be a convincing and well-founded story: Readers will stop reading here if they do not see the relevance of your work for them.
-If you have a central research question, state it clearly.
-If there are particular papers relevant to your work, such as central techniques you used, designs you built on or evaluated, or similar, be sure to include citations here.
+By measuring the variation in speed-up gained from out-of-order execution, an attacker can gain insight into sensitive information.
+One of the ways attacks achieve this is through port contention.
+Because the instructions are reordered on the fly, the CPUs scheduler needs to distribute incoming instructions across the ports for its several specialized execution units.
+If the attacker is co-located with the victim on the same core, the attacker can issue instructions for a particular execution unit and check whether they get delayed or not.
+This then tells the attacker whether victim is using an execution unit in that port or not.
+SMoTherSpectre~\cite{Bhattacharyya2019} and PortSmash~\cite{Aldaya2019port} already use this principle successfully.
 
-Then, provide a summary and relevant details to characterize your contribution and approach for solving the research problem.
-The introduction is generally written in present tense and active form -- everything happens now and is done by ``we'', the author(s):
-``We provide an implementation'', ``We discuss'', ``We evaluate'', etc.
-The focus is on your final \emph{outcome} and gained insights, not on your personal journey to get there; for example, do include facts like the runtime of your implementation if it is relevant for judging its performance, but do not include how many months it took you to produce this implementation.
-Provide a concise summary of your approach and your main findings, including all details already given in the Abstract and some more details.
-This includes a clear definition of the scope of your work and your assumptions, such as your attacker model, hardware/software used, and similar.
-There should be no big (positive or negative) surprises on your results for the reader in the remaining paper, except for technical details on \emph{how} you achieved your results.
-If there is a useful central figure that helps explain and contextualize your contribution, or a summary table that compares your contribution with related work, you can add it here.
-Finish this part with a (bulleted) list of around 3 to 5 main scientific contributions, such as new ideas and techniques, applications of techniques to new application areas, novel implementation results, performance numbers, and similar.
+While SMoTherSpectre relies on an architecture where there is only one scheduler for all ports, SQUIP~\cite{squip} focuses on CPUs with separate scheduler queues per execution unit.
+Because each execution unit has its own scheduler, pipeline stalls are easier to achieve and allow more accurate measurements.
+This exploitation of \textit{per-execution-unit port contention} makes SQUIP a fast and reliable covert channel on many modern CPU architectures such as the Apple M1, and the AMD Zen 2 and Zen 3.
 
-At some point in your thesis, you need to discuss relevant related work.
-Depending on what your work contributes, a good spot for this discussion can be in the \emph{Introduction}, in the \emph{Background} section, or in a final \emph{Discussion} section.
+Since implementations of port contention-based side channels in a browser setting already exist~\cite{Rokicki2022webport}, we ask the following research question:
+
+\textit{Can per-execution-unit scheduler port contention be exploited in a browser setting? Are there significant benefits compared to single scheduler port contention-based approaches?}
+
+In this paper, we present JavaSQUIP, a browser-based covert channel using the SQUIP attack.
+We show that it is reliable and faster than approaches based on CPU architectures with a single scheduler queue.
+We develop a framework for transmitting data between separate instances of a browser at speeds of up to 1000 bit/s.
 
 \paragraph{Outline.}
-The introduction ends with an outline (aka mapping), explaining how this paper is structured:
-In Section \ref{chap:background}, we introduce the relevant background on some topic.
-(\dots)
-Finally, in Section \ref{chap:conclusion}, we conclude with a discussion of our findings and directions for future work.
+In Section~\ref{ch:background}, we explain the relevant knowledge around pipelines, schedulers and port contention.
+We also observe several challenges that come with trying to implement a timing attack in a browser.
+Section~\ref{ch:implementation} shows how we dealt with these challenges.
+Section~\ref{ch:conclusion} concludes by comparing JavaSQUIP's performance to similar attacks and outlining potential use cases.
 
 
 %--- BACKGROUND ----------------------------------------------------------------
 
 \chapter{Background}
-\label{chap:background}
+\label{ch:background}
 
-Every chapter starts with an introductory paragraph that outlines the contents and purpose of the chapter:
+In this chapter, we go into detail on CPU scheduling and how it has been exploited in the past.
+Afterwards, we take a closer look into the browser features needed to implement these exploits in JavaScript.
 
-In this chapter, we provide some usage examples for bibliography and citations with \texttt{biblatex} (Section \ref{sec:bib}) and writing tips (Section \ref{sec:hints}).
+\section{CPU Scheduling}
+\label{sec:cpuschedulers}
+For performance reasons, modern CPUs use efficiency features at almost every level of the lifecycle of an instruction.
+In the following, we will list these features for each of the stages along with the way they are exploitable.
 
-\section{Citations}
-\label{sec:bib}
+\textbf{Fetch.}
+Before an instruction can be used, it needs to be loaded from cache or memory.
+As branches can make loading unpredictable and loading the wrong instruction is expensive, a \textit{branch prediction unit} tries to guess which path is more likely to be loaded.
+Taking this one step further, the predicted path may also be executed before the condition for the branch has been computed.
+This is called \textit{speculative execution}, and it can be exploited, as was shown in the Spectre~\cite{spKocherHFGGHHLM019} attack.
 
-This is an example of how to specify and cite
-a book \cite{AESbook},
-a journal article \cite{bstjShannon49},
-a conference article \cite{spKocherHFGGHHLM019},
-an informal report \cite{iacrSchneierFKR15},
-and a website \cite{webIAIK21}.
-We can also add the authors' names to the citation:
-AES is a block cipher defined by \textcite{AESbook}.
+\textbf{Decode.}
+Modern CPUs divide normal instructions -- also called \textit{macro-ops} -- into smaller, RISC-like instructions;
+these are called \textit{micro-ops} (\textmu ops).
+These \textmu ops can be distributed across specialized execution units, enabling more fine-grained control and thus an increased speed.
 
-\section{Writing Style}
-\label{sec:hints}
+% TODO accurate?
+\textbf{Schedule/Execute.}
+Once created, the \textmu ops are queued to be executed out of order as soon as their dependencies are met.
+Depending on the CPU micoarchitecture, there can be one scheduler queue for every execution unit, or multiple -- one for each (group of) execution unit(s).
+On CPUs that support simultaneous multithreading (SMT), an attacker may be co-located with the victim on the same core.
+This opens up the vulnerability of a timing attack based on port contention;
+an attacker can find out whether the victim is executing a particular \textmu op based on timing differences in the scheduler queue.
+To achieve this, the attacker fills up the scheduler queue to the point that it is almost full;
+any activity of the victim that involves this scheduler queue will overflow the queue, leading to a queue stall.
+The attacker can measure this easily because it entails a significant spike in execution time in the affected queue.
+SMoTherSpectre~\cite{Bhattacharyya2019} and PortSmash~\cite{Aldaya2019port} implement this attack in an environment with a single scheduler queue.
+SQUIP~\cite{squip} adapts the exploit to architectures with multiple scheduler queues.
 
-Writing style recommendations for English differ a bit from German:
+\textbf{Retire.}
+After all the \textmu ops of a macro-operation have completed, the \textit{retire control unit} (RCU) reassembles the results.
+These are then passed on to the frontend -- the dissection into \textmu ops is transparent to the user.
+
+The JavaSQUIP attack focuses on scheduler queue contention.
+While a port contention-based side channel of single-scheduler based CPUs has been implemented in JavaScript~\cite{Rokicki2022webport},
+JavaSQUIP does the same for multi-scheduler architectures.
+
+\section{Browser security measures}
+\label{sec:browsersecurity}
+Since the advent of many timing side- and covert channels~\cite{spKocherHFGGHHLM019, Bhattacharyya2019, Rokicki2022webport}, browser developers have devised many measures to mitigate the threat~\cite{shusterman2021prime}.
+This has always meant striking a balance between security and efficiency.
+Because of this, many potential attack surfaces cannot be eliminated without unreasonable losses in performance, though  some measures do slow down side- and covert channels significantly.
+
+In the following we expand on security measures regarding multithreading and accurate timing in browsers, as both are needed to mount the SQUIP attack.
+
+\subsection{Multithreading}\label{subsec:multithreading}
+Though JavaScript does not support low-level control over threading, the \texttt{Web Workers} API~\cite{webworkers} allows the user to create workers running in a separate thread.
+An instantiated worker runs a predefined script.
+The main thread can interface with the worker via calls to the \texttt{Worker.postMessage()} function and via a \texttt{SharedArrayBuffer}~\cite{sharedarraybuffer}.
+Creating a \texttt{SharedArrayBuffer} was restricted to SSL-secured browser windows, which is not a problem for this attack.
+
+% TODO should this go to main?
+For co-locating the receiver with the sender, the receiver creates as many workers as the number of cores on the machine's CPU.
+Now, every one of these workers will create a lot of entries in a particular execution unit's queue.
+This makes it very likely that each of the workers will be moved to a separate core to reduce port contention.
+Since every worker is in a separate core, one of them is bound to be co-located on the same core with the sending thread.
+
+\subsection{Accurate timing}\label{subsec:accurate-timing}
+JavaSQUIP needs two kinds of timing in order to work properly:
 \begin{itemize}
-  \item Prefer short, clear sentences over long, convoluted sentences.
-  \item Prefer active voice, well-defined subjects, and meaningful verbs over passive voice, vague subjects, and vague verbs.
-  \item Do not concatenate too many nouns.
-  \item When you refer to the same thing several times consecutively, call it by the same name instead of inventing synonyms. (``Wortwiederholung'' is ok.)
-\end{itemize}
-Consider using a style checker such as Grammarly -- ask your supervisor for details.
+    \item a cross-browser syncronized clock to determine the start of bit transmissions:
 
-Rules for placing commas in English are quite easy, but also quite different from German.
-The most important ones include:
-\begin{itemize}
-  \item No comma before ``that'': ``Due to the fact that\dots''
-  \item No comma before infinitives: ``We did this to find out\dots''
-  \item No comma between subject and verb (be careful not to confuse with introductory clauses): ``Completing the list is essential.''
-  \item No comma before indispensable relative clauses: ``The function returns the key which has the highest score.''
-  \item Put a comma before and after dispensable relative clauses and other non-essential phrases: ``The key, which consists of two subkeys, is generated\dots''
-  \item Put a comma after introductory clauses: ``Consequently, we use\dots''; ``After the last step, we return\dots''; ``To complete the list, we add\dots''.
-  \item Put a comma before and after ``e.g.'' and ``i.e.'': ``A block cipher, e.g., AES.''
-    Consider using ``for example/for instance/such as'' and ``that is'' instead.
-  \item Many authors put a comma before ``and, but, for, or, nor, so, yet'' when they connect two independent clauses: ``We repeated the experiment, but the result was different.''
-    This is a matter of (your or your supervisor's) preference.
-  \item Many authors put a comma before ``and, or'' in the last element of an enumeration of three or more elements: ``Alice and Bob'', but ``Alice, Bob, and Caesar.''
-    This ``Oxford comma'' is a matter of (your or your supervisor's) preference.
+    on the order of $f_{transmission}^{-1} \approx$ 1ms
+    \item a fine-grained measurement to measure port contention:
+
+    on the order of 100 CPU cycles $\approx$ 25ns
 \end{itemize}
 
-Typesetting and other hints:
-\begin{itemize}
-  \item To typeset English `single' and ``double'' quotation marks in \LaTeX, start with \verb|`| (grave accent) and end with \verb|'| (typewriter apostrophe).
-  \item Display math formulas are introduced in the previous sentence and include punctuation (often separated by a thin space \verb|\,|): The ciphertext is computed as
-    \[C = E_K(P)\,.\]
-  \item Captions are usually above tables, but below figures, and end with a full stop.
-  \item ``This key has 128 bits'', but ``128-bit key''.
-  \item References are typically capitalized and separated by a non-breaking space \verb|~|: ``Section~\ref{sec:bib}''.
-    Try \verb|\autoref| (\autoref{sec:bib}) or the \verb|cleveref| package. % \Cref{sec:bib}
-\end{itemize}
+The synchronisation can be realized with the \texttt{Date.now()}~\cite{datenow} function, which gives a synchronized Unix timestamp with millisecond accuracy.
+This method only works for transmissions of up to 1000 bits/s, since there is no more precise timestamp in JavaScript which is synchronized across browser instances.
 
-Figure \ref{fig:diagram} illustrates the data of Table \ref{tab:data}.
+% TODO: does this belong in main?
+% TODO: source for manchester code
+To get around this and realize a faster transmission than 1000 bits/s, we propose implementing the Manchester Code \textbf{[citation needed]}.
+It is self-synchronizing, which eliminates the need for an external source of synchronisation.
+The actual implementation is not within the scope of this paper.
 
-\begin{figure}[htpb]
-  \centering
-  %\includegraphics[width=.5\textwidth]{figures/myimage.png}
-  \caption{Concise descriptive caption for the figure (printed below the figure).}
-  \label{fig:diagram}
-\end{figure}
+The receiver also needs a way to measure the small variations in timing whenever a scheduler queue gets blocked.
+Since timing attacks need accurate timing to work, browser developers are restricting the accuracy of timing sources that are available to the user.
+At the time of writing this, no common browser provides the user with a timing source with more accuracy than 1 ms.
 
-\begin{table}[b]
-  \caption{Concise descriptive caption for the table (printed above the table).}
-  \label{tab:data}
-  \centering
-  \begin{tabular}{lrr} % text columns: {l}eft-aligned, number columns: {r}ight-aligned
-    \toprule
-    Item   & \multicolumn{2}{c}{Properties} \\
-             \cmidrule{2-3}
-           & First          & Second \\
-    \midrule
-    Apple  & 5              & 100 \\
-    Pear   & 10             & 99 \\
-    \bottomrule
-  \end{tabular}
-\end{table}
+% TODO: does this belong in main?
+Nevertheless, an attacker can produce their own timing source.
+We can instantiate a counting worker, which continually increases one variable in the \texttt{SharedArrayBuffer}.
+The other receiver workers can then access this counter and use it to measure execution times with adequate accuracy.
 
+\subsection{Low-level operations in JavaScript}\label{subsec:lowleveljs}
+A port-contention covert channel works best if the issued \textmu op only fills up one scheduler queue.
+For example, AMD Zen, Zen2, and Zen3 architectures support multiplication only on ALU1 \textbf{[citation needed]}.
+By sending multiple codependent \texttt{imul} instructions, we can fill ALU1's scheduler queue.
+
+JavaScript handles numbers as floats by default.
+This means that a simple invocation of a multiplication like \texttt{a * b;} will not result in an \texttt{imul} instruction on the CPU.
+Rather, \texttt{Math.imul(a, b)} \textbf{[citation needed]} does exactly what we need:
+It interprets the parameters as 32bit integers and multiplies them as such, filling up ALU1's scheduler queue.
+
+
+%--- IMPLEMENTATION ----------------------------------------------------------------
+\chapter{Implementing JavaSQUIP}
+\label{ch:implementation}
 
 %--- CONCLUSION ----------------------------------------------------------------
 
 \chapter{Conclusion}
-\label{chap:conclusion}
+\label{ch:conclusion}
+% TODO: should i conclude about the experiment or the literary study?
+In this paper, we ported the SQUIP~\cite{squip} attack to a JavaScript context, thus creating the JavaSQUIP covert channel.
+JavaSQUIP has achieved a transmission rate of 1000 bits/s, proving an advantage in performance over attacking single-scheduler based architectures~\cite{Rokicki2022webport}.
+This shows that architectures with multiple scheduler queues present a bigger attack surface than their single-scheduler counterparts.
 
-Provide the conclusions of your short report (max. $\frac{1}{2}$ page).
+JavaSQUIP breaks the sandboxing model of a web browser context.
+This means that one browser instance can communicate with another without using the network, thus being virtually undetectable for an unknowing victim.
+This could potentially be used by malicious code within a website -- no matter its origin -- to exfiltrate data to another browser instance on the same computer.
 
-This is structured similarly to the abstract and introduction.
-However, unlike the abstract, it can be partially written in past tense (for actions you performed and results that you found) as well as future tense or conditional (for predictions what the impact of your work will be).
-Start by briefly recalling the main motivation and main goal of your work.
-Repeat the main hard facts, performance numbers, and properties of your solution/work.
-%
-Emphasize your main insights, findings, and lessons learned.
-If you do not have a dedicated discussion section, you can discuss your findings and put them into perspective.
-If you have any recommendations based on your work, phrase them here.
-
-Finally, you can point out open problems that call for future work, but phrased in a positive way -- as opportunities.
-There should be no complete surprises (such as significant shortcomings not discussed earlier), but you can provide some new thoughts and ideas.
+Though security updates in modern browsers slow down and hinder timing attacks, microarchitectural attacks have not yet been eliminated.
+JavaSQUIP mostly uses JavaScript features that have already been restricted to improve security as much as feasible;
+Mitigating microarchitectural attacks in a browser setting proves to be increasingly hard as CPUs grow more and more complex.
 
 
 %--- BIBLIOGRAPHY --------------------------------------------------------------
