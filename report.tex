@@ -12,7 +12,7 @@
 
 % Hack chapter layout - don't use in other papers!
 \usepackage{etoolbox}
-%\makeatletter\patchcmd{\scr@startchapter}{\if@openright\cleardoublepage\else\clearpage\fi}{}{}{}\makeatother
+\makeatletter\patchcmd{\scr@startchapter}{\if@openright\cleardoublepage\else\clearpage\fi}{}{}{}\makeatother
 
 % Useful packages for complex content:
 \usepackage{amsmath,amsfonts,amssymb} % typesetting math
@@ -34,7 +34,8 @@
 % Useful utils:
 %\usepackage{todonotes}               % add ToDo markers (\todo{...}, \todo[inline]{...})
 \usepackage[hidelinks]{hyperref}
-\usepackage{textcomp}      % clickable links (but hide color frames around links)
+\usepackage{textcomp}
+\usepackage{graphicx}      % clickable links (but hide color frames around links)
 %\usepackage{cleveref}                % named references (\Cref{chap:introduction}, ...)
 
 % Your own macros:
@@ -61,8 +62,9 @@
 \maketitle
 
 \chapter*{\centering\Large Abstract}
+\label{ch:abstract}
 The implementation of out-of-order execution has brought a big performance benefit to current CPUs.
-But with this benefit come also security concerns, since attackers can exploit the timing variations which are bound to occur in an out-of-order pipeline.
+But with this benefit also come security concerns, since attackers can exploit the timing variations which are bound to occur in an out-of-order pipeline.
 Attacks which target only one execution unit through a separate scheduler queue -- as seen in the Apple M1 and AMD Zen 2 and Zen 3 microarchitectures -- have proven even more powerful than port contention on single-scheduler systems.
 As with any attack, porting this side channel to the web would greatly increase its reach and number of victims.
 
@@ -72,8 +74,6 @@ Our covert channel can provide communication across separate browser instances a
 
 JavaSQUIP makes it clear that current browsers have not yet been able to adapt to be secure in light of the ever increasing complexity of modern CPUs.
 Our findings suggest that making these attacks impossible may not even be feasible because the drawbacks in performance and features would be too large.
-
-
 \paragraph{Keywords:}
 Covert channel $\cdot$
 Scheduler queue contention $\cdot$
@@ -88,23 +88,23 @@ AMD Zen
 \chapter{Introduction}
 \label{ch:introduction}
 
-Nowadays, CPU manufacturers are in a lasting battle against each other to make their product faster and faster.
-One of the ways this is achieved is \textit{out-of-order execution}, where instructions are not executed in the order given by the binary, but rather as soon as their respective dependencies are ready.
+Nowadays, CPU manufacturers are in a steady competition against each other to make their product faster and faster.
+One of the ways this is achieved is \textit{out-of-order execution}, where instructions are not executed in the order given by the binary, but rather as soon as their respective dependencies are ready and a suitable execution unit is free.
 Although this toes the line of breaking the hardware-software contract, the CPU ensures that out-of-order execution remains transparent to the user.
 To better balance usage of its execution units, modern CPUs often also include \textit{Simultaneous Multithreading} (SMT).
 Here, one physical core is split up into two logical cores, which share some physical architecture.
 SMT is also designed to be transparent to the user, but problems arise from the combination of out-of-order execution and SMT.
 
+SMoTherSpectre~\cite{Bhattacharyya2019} and PortSmash~\cite{Aldaya2019port} show that out-of-order execution and SMT together form a viable attack surface.
 By measuring timing variations in out-of-order execution, an attacker can gain insight into sensitive information.
-One of the ways attacks achieve this is through scheduler queue.
+One of the ways attacks achieve this is through scheduler queue contention.
 %Because the instructions are reordered on the fly, the CPUs scheduler needs to distribute incoming instructions across the ports for its several specialized execution units.
 If the attacker is co-located with the victim on the same core, they can measure delays when issuing instructions to a shared execution unit.
 In this way, the attacker can gain knowledge on the victim's execution based on whether instructions are delayed by the scheduler or not.
-SMoTherSpectre~\cite{Bhattacharyya2019} and PortSmash~\cite{Aldaya2019port} already use this principle successfully.
 
-While SMoTherSpectre and PortSmash rely on an architecture where there is only one scheduler for all ports, SQUIP~\cite{squip} focuses on CPUs with multiple specialized scheduler queues.
+While SMoTherSpectre and PortSmash were designed for Intel CPUs with only one shared scheduler for all ports, SQUIP~\cite{squip} focuses on CPUs with multiple specialized scheduler queues.
 Because each scheduler deals with fewer execution units, pipeline stalls are easier to achieve and allow more accurate measurements.
-This exploitation of \textit{scheduler queue contention} makes SQUIP a fast and reliable covert channel on many modern CPU architectures such as the Apple M1, and the AMD Zen 2 and Zen 3.
+This exploitation of \textit{scheduler queue contention} makes SQUIP a fast and reliable covert channel on many modern CPU architectures such as the AMD Zen 2 and Zen 3.
 
 Since implementations of port contention-based side channels in a browser setting already exist~\cite{Rokicki2022webport}, we ask the following research question:
 
@@ -115,7 +115,7 @@ We show that it is reliable and faster than approaches based on CPU architecture
 We develop a framework for transmitting data between separate instances of a browser at speeds of up to 1000 bit/s.
 
 \paragraph{Outline.}
-In Section~\ref{ch:background}, we explain the relevant knowledge around pipelines, schedulers and scheduler queue contention.
+In Section~\ref{ch:background}, we provide relevant background information on pipelines, schedulers and scheduler queue contention.
 We also observe several challenges that come with trying to implement a timing attack in a browser.
 Section~\ref{ch:implementation} shows how we dealt with these challenges.
 Section~\ref{ch:conclusion} concludes by comparing JavaSQUIP's performance to similar attacks and outlining potential use cases.
@@ -141,48 +141,52 @@ Taking this one step further, the predicted path may also be executed before the
 This is called \textit{speculative execution}, and it can be exploited, as was shown in the Spectre~\cite{spKocherHFGGHHLM019} attack.
 
 \textbf{Decode.}
-Modern CISC CPUs divide normal instructions into smaller, RISC-like instructions;
+Modern CISC CPUs divide normal instructions into smaller instructions;
 these are called \textit{micro-ops} (\textmu ops).
+For example, a simple addition may be split up into three \textmu ops: one for loading the operands, one for the addition, and one for storing the result.
 These \textmu ops can be distributed across specialized execution units, enabling more parallelisation and load balancing, and thus an increase in performance.
 
-% TODO accurate?
 \textbf{Schedule/Execute.}
 Once created, the \textmu ops are queued to be executed as soon as their dependencies are met -- sometimes out of the order of their arrival.
 Depending on the CPU micoarchitecture, there can be one general scheduler queue for all execution units, or multiple.
 On CPUs that support simultaneous multithreading (SMT), an attacker may be co-located with the victim on the same core.
-This opens up the vulnerability of a timing attack based on scheduler queue contention;
-an attacker can find out whether the victim is executing a particular \textmu op based on timing differences in the scheduler queue.
-To achieve this, the attacker fills up the scheduler queue to the point that it is almost full;
+This opens up two vectors for a timing attack: \textit{port contention} and \textit{scheduler queue contention}.
+
+SMoTherSpectre~\cite{Bhattacharyya2019} and PortSmash~\cite{Aldaya2019port} implement port contention.
+They use the fact that only one of the two threads in an SMT-enabled core can use an execution unit in a single cycle.
+The attacker can thus find out whether the victim is using a port by measuring the execution time of an instruction on the same port.
+
+SQUIP~\cite{squip} on the other hand implements scheduler queue contention.
+In scheduler queue contention, the attacker fills up the scheduler queue to the point that it is almost full;
 any activity of the victim that involves this scheduler queue will overflow the queue, leading to a queue stall.
 The attacker can measure this easily because it entails a significant spike in execution time in the affected queue.
-SMoTherSpectre~\cite{Bhattacharyya2019} and PortSmash~\cite{Aldaya2019port} implement this attack in an environment with a single scheduler queue.
-SQUIP~\cite{squip} adapts the exploit to architectures with multiple scheduler queues.
-JavaSQUIP aims to port this vulnerability to a browser environment.
+
+\clearpage
+SQUIP is limited in its applicable CPU architectures because it relies on the split-scheduler architecute of AMD Zen2 and Zen3 CPUs to distinguish between \textmu ops.
+However its advantage is a higher transmission rate compared to port contention.
+Because of this, JavaSQUIP aims to port this vulnerability to a browser environment.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.5\textwidth]{Zen3-schedulers}
+
+    \caption{The scheduler layout in AMD Zen2 (c.f.~\cite{squip})}
+    \label{fig:amdzen2}
+\end{figure}
 
 \textbf{Retire.}
 After all the \textmu ops of a macro-operation have completed, the \textit{retire control unit} (RCU) reassembles the results.
 These are then passed on to the frontend -- the dissection into \textmu ops is transparent to the user.
 
-%The JavaSQUIP attack focuses on scheduler queue contention.
-%While a port contention-based side channel of single-scheduler based CPUs has been implemented in JavaScript~\cite{Rokicki2022webport},
-%JavaSQUIP does the same for multi-scheduler architectures.
 
 \section{Browser security measures}
 \label{sec:browsersecurity}
 Since the advent of many timing side- and covert channels~\cite{noack2018exploiting, Rokicki2022webport, gruss2016rowhammer}, browser developers have devised many measures to mitigate the threat~\cite{shusterman2021prime}.
 This has always meant striking a balance between security and efficiency.
-Because of this, many potential attack surfaces cannot be eliminated without unreasonable losses in performance, though  some measures do slow down side- and covert channels significantly.
+Because of this, many potential attack surfaces cannot be eliminated without unreasonable losses in performance and functionality, though some measures do slow down side- and covert channels significantly.
 
 In the following we expand on security measures regarding multithreading, accurate timing in browsers, and low-level operations.
 All three of these are needed to mount the SQUIP attack.
-
-\subsection{Multithreading}\label{subsec:multithreading}
-Though JavaScript does not support low-level control over threading, the \texttt{Web Workers} API~\cite{webworkers} allows the user to create workers running in a separate thread.
-An instantiated worker runs a predefined script.
-The main thread can interface with the worker via calls to the \texttt{Worker.postMessage()} function and via a \texttt{SharedArrayBuffer}~\cite{sharedarraybuffer}.
-Creating a \texttt{SharedArrayBuffer} was restricted to SSL-secured browser windows, which is not a problem for this attack.
-There is no support for selecting a core on which a worker is run on, presenting a challenge to co-locate with the sender.
-
 
 
 \subsection{Timing functions}\label{subsec:timingjs}
@@ -195,6 +199,15 @@ This is synchronized across all contexts and browser instances.
 This means that \texttt{performance.now()} gives different values between browser instances, and even between a main thread and its worker threads.
 \texttt{performance.now()}'s accuracy has been heavily restricted by browsers to counteract the thread of timing attacks.
 For example, in Firefox it has an accuracy of 1 ms, and in Chrome it measures with an accuracy of 0.1 ms.
+
+\subsection{Multithreading}\label{subsec:multithreading}
+Though JavaScript does not support low-level control over threading, the \texttt{Web Workers} API~\cite{webworkers} allows the user to create workers running in a separate thread.
+An instantiated worker runs a predefined script.
+The main thread can interface with the worker via calls to the \texttt{Worker.postMessage()} function and via a \texttt{SharedArrayBuffer}~\cite{sharedarraybuffer}.
+There is no support for selecting a core on which a worker is run on, presenting a challenge to co-locate with the sender.
+
+Creating a \texttt{SharedArrayBuffer} was restricted in two ways: the browser window needs to be SSL-encrypted, and it needs to restrict some Cross-Origin requests.
+Nevertheless, this is not a problem for this attack since the site provides \texttt{https} and all code comes from a single origin.
 
 
 \subsection{Low-level operations in JavaScript}\label{subsec:lowleveljs}
@@ -209,13 +222,6 @@ It interprets the parameters as 32bit integers and multiplies them as such, resu
 \label{ch:implementation}
 As described in Section~\ref{sec:browsersecurity}, there are some challenges to overcome when implementing a timing attack in a browser.
 This chapter explains how we worked around these challenges to implement the JavaSQUIP covert channel.
-
-\section{Co-locating with the sender}
-\label{sec:colocation}
-For co-locating the receiver with the sender, the receiver creates as many workers as the number of cores on the machine's CPU.
-Now, every one of these workers will create a lot of entries in a particular execution unit's queue.
-This makes it very likely that each of the workers will be moved to a separate physical core to reduce port contention.
-Since every worker is in a separate core, one of them is bound to be co-located on the same core with the sending thread.
 
 \section{Getting accurate timing}
 \label{sec:accurate-timing}
@@ -238,6 +244,15 @@ Since no timing function in JavaScript gives a better accuracy than 0.1ms, we ne
 
 We can instantiate a counting worker, which continually increases one variable in the \texttt{SharedArrayBuffer}.
 The other receiver workers can then access this counter and use it to measure execution times with adequate accuracy.
+For more information on multithreading, see the section \ref{subsec:multithreading}.
+
+\section{Co-locating with the sender}
+\label{sec:colocation}
+For co-locating the receiver with the sender, the receiver creates as many receiving workers as the number of cores in the machine, minus one for the counting thread (see \ref{sec:accurate-timing}).
+Now, every one of these workers will create a lot of entries in a particular execution unit's queue.
+This makes it very likely that each of the workers will be moved to a separate physical core as the operating system tries to balance the load.
+Since every worker is in a separate core, one of them is bound to be co-located on the same core with the sending thread.
+
 
 \section{Targeting a scheduler queue}
 JavaSQUIP targets AMD Zen, Zen2, and Zen3;
