@@ -1,0 +1,3 @@
+[submodule "presentation/tugraz-presentation"]
+	path = presentation/tugraz-presentation
+	url = git@extgit.iaik.tugraz.at:meichlseder/tugraz-presentation.git
