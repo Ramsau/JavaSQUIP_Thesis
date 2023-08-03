@@ -49,6 +49,7 @@
 \title{JavaSQUIP}
 \subtitle{An application of a scheduler queue-based covert channel to JavaScript}
 \author{Christoph Royer}
+% TODO change to Backelor's thesis
 \date{Introduction to Scientific Working 2022/23\bigskip\bigskip}
 \publishers{\normalsize
   Supervisor:
@@ -71,6 +72,7 @@ As with any attack, porting this side channel to the web would greatly increase 
 In this paper, we present the JavaSQUIP attack, which is a port of SQUIP~\cite{squip} to JavaScript.
 We look into the security measures used in common browsers to prevent timing attacks, and show how we worked around them successfully.
 Our covert channel can provide communication across separate browser instances at a speed of 1000 bits/s, which is faster than any current covert channel of this type.
+% TODO add eval data
 
 JavaSQUIP makes it clear that current browsers have not yet been able to adapt to be secure in light of the ever increasing complexity of modern CPUs.
 Our findings suggest that making these attacks impossible may not even be feasible because the drawbacks in performance and features would be too large.
@@ -82,7 +84,7 @@ AMD Zen
 
 \clearpage
 
-
+% TODO: Add todos ;)
 %--- INTRODUCTION --------------------------------------------------------------
 
 \chapter{Introduction}
@@ -161,11 +163,13 @@ SQUIP~\cite{squip} on the other hand implements scheduler queue contention.
 In scheduler queue contention, the attacker fills up the scheduler queue to the point that it is almost at its capacity limit;
 any activity of the victim that involves this scheduler queue will overflow the queue, leading to a queue stall.
 The attacker can measure this easily because it entails a significant spike in execution time in the affected queue.
+% TODO visualisation of sqc
 
 \clearpage
 SQUIP is limited in its applicable CPU architectures because it relies on the split-scheduler architecute of AMD Zen2 and Zen3 CPUs to distinguish between \textmu ops.
 However its advantage is a higher transmission rate compared to port contention.
 Because of this, JavaSQUIP aims to port this vulnerability to a browser environment.
+% TODO Because of what?
 
 \begin{figure}
     \centering
@@ -252,6 +256,7 @@ As explained in section \ref{subsec:multithreading}, the other receiver workers 
 For co-locating the receiver with the sender, the receiver creates as many receiving workers as the number of physical cores in the machine, minus one for the counting thread (see \ref{sec:accurate-timing}).
 As the operating system tries to balance the load of the newly created threads, the receiving threads will likely be distributed across all available logical and physical cores.
 Since every worker is in a separate physical core, one of them is bound to be co-located with the sending thread.
+% TODO theoretical colocation probability
 
 
 \section{Targeting a scheduler queue}
@@ -259,6 +264,16 @@ JavaSQUIP targets AMD Zen, Zen2, and Zen3;
 these architectures support multiplication only on ALU1~\cite{AMD2020OptimizationEPYC7003}.
 JavaSQUIP fills up the scheduler queue of ALU1 by making multiple codependent calls to \texttt{Math.imul()}, which translate to the \texttt{imul} instruction.
 
+
+%--- EVALUATING JAVASQUIP --------------------------------------------------------------
+\chapter{Evaluating JavaSQUIP}
+\label{ch:evaluation}
+
+\section{Speed}
+% TODO
+
+\section{Reliability}
+% TODO
 
 %--- CONCLUSION ----------------------------------------------------------------
 
