@@ -84,7 +84,6 @@ AMD Zen
 
 \clearpage
 
-% TODO: Add todos ;)
 %--- INTRODUCTION --------------------------------------------------------------
 
 \chapter{Introduction}
@@ -267,7 +266,7 @@ As explained in section \ref{subsec:multithreading}, the other receiver workers 
 For co-locating the receiver with the sender, the receiver creates as many receiving workers as the number of physical cores in the machine, minus one for the counting thread (see \ref{sec:accurate-timing}).
 As the operating system tries to balance the load of the newly created threads, the receiving threads will likely be distributed across all available logical and physical cores.
 Since every worker is in a separate physical core, one of them is bound to be co-located with the sending thread.
-% TODO theoretical colocation probability
+% TODO theoretical colocation probability and number of receivers needed
 
 % TODO link to graphics
 \section{Targeting a scheduler queue}
@@ -279,6 +278,23 @@ JavaSQUIP fills up the scheduler queue of ALU1 by making multiple codependent ca
 %--- EVALUATING JAVASQUIP --------------------------------------------------------------
 \chapter{Evaluating JavaSQUIP}
 \label{ch:evaluation}
+
+To evaluate and measure different approaches, we set up a test scenario for JavaSQUIP.
+It consists of two web pages communicating with each other solely over JavaSQUIP.
+
+\section {Test setup}
+The test setup is comprised of two webpages: a sender and a receiver.
+The sender simulates the target, and the receiver simulates a page that is controlled by the attacker.
+Because the attacker has little or no control over the target, we kept the sender page minimal.
+The sender has only one working thread.
+The working thread is sending either a 0 (no action) or a 1 (contention with codependent \texttt{Math.imul()} calls) for each timeslice.
+With more control over the receiver, the attacker can ensure colocation from this side.
+For our tests on \textbf{TODOCPU1} (Zen2) and \textbf{TODOCPU2} (Zen3), we needed 14 receiving workers.
+We go into more detail on colocation in Chapter~\ref{sec:colocation}.
+
+To distinguish a message from random noise on the CPU, the sender sends a preamble before the actual data.
+% TODO explain preamble and correctness measurement.
+
 
 \section{Speed}
 % TODO
