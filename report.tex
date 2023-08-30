@@ -261,12 +261,20 @@ Since no timing function in JavaScript gives a better accuracy than 0.1ms, we ne
 We solved this with a counting worker, which continually increases one variable in the \texttt{SharedArrayBuffer}.
 As explained in section \ref{subsec:multithreading}, the other receiver workers can then access this counter and use it to measure execution times with adequate accuracy.
 
+%TODO explain timeslices, start of bytes
+
 \section{Co-locating with the sender}
-\label{sec:colocation}
-For co-locating the receiver with the sender, the receiver creates as many receiving workers as the number of physical cores in the machine, minus one for the counting thread (see \ref{sec:accurate-timing}).
-As the operating system tries to balance the load of the newly created threads, the receiving threads will likely be distributed across all available logical and physical cores.
-Since every worker is in a separate physical core, one of them is bound to be co-located with the sending thread.
-% TODO theoretical colocation probability and number of receivers needed
+\label{sec:co-location}
+For co-locating the receiver with the sender, the receiver creates as many receiving workers as the number of virtual cores in the machine, minus two:
+one for the counting thread (see \ref{sec:accurate-timing}), and one for the sending thread.
+For the 8-core CPUs we used in our experiments (TODOCPU), this comes to $8 \times 2 - 2 = 14$ receiver workers.
+Since every thread does continuous work, each thread will most likely be assigned to a unique virtual core.
+
+To receive the message, one of the worker threads needs to be co-located with the sending thread.
+Assuming a uniform distribution for the threads, we can calculate the theoretical co-location probability.
+The only way that the sender is not co-located with a receiver is that the sender is co-located with the counting thread,
+which is a $\frac{1}{15}$ chance.
+Thus, the theoretical co-location probability is $\frac{14}{15} \approx 93.3\%$
 
 % TODO link to graphics
 \section{Targeting a scheduler queue}
@@ -283,30 +291,39 @@ To evaluate and measure different approaches, we set up a test scenario for Java
 It consists of two web pages communicating with each other solely over JavaSQUIP.
 
 \section {Test setup}
+\label{sec:testseutup}
 The test setup is comprised of two webpages: a sender and a receiver.
 The sender simulates the target, and the receiver simulates a page that is controlled by the attacker.
 Because the attacker has little or no control over the target, we kept the sender page minimal.
 The sender has only one working thread.
 The working thread is sending either a 0 (no action) or a 1 (contention with codependent \texttt{Math.imul()} calls) for each timeslice.
-With more control over the receiver, the attacker can ensure colocation from this side.
+With more control over the receiver, the attacker can ensure co-location from this side.
 For our tests on \textbf{TODOCPU1} (Zen2) and \textbf{TODOCPU2} (Zen3), we needed 14 receiving workers.
-We go into more detail on colocation in Chapter~\ref{sec:colocation}.
+We go into more detail on co-location in Chapter~\ref{sec:co-location}.
 
 To distinguish a message from random noise on the CPU, the sender sends a preamble before the actual data.
-% TODO explain preamble and correctness measurement.
+The preamble is a sequence of the numbers from 100 through 109.
+If the receiver sees two ascending bytes between 100 and 109, it is highly likely that this is part of the preamble --
+a message was detected.
+For easier evaluation of the transmission accuracy, the message is also stored on the receiver's side,
+so that the number of "faulty 1" and "faulty 0" bits can be automatically calculated.
 
 
 \section{Speed}
-% TODO
-% TODO how to measure/calc speed
-% TODO actual speed
+The sender and receiver need to know the desired transmission speed beforehand to match up their timeslices.
+This means that the transmission speed is a fixed value and needs no further calculation.
+Due to reasons explained in Section~\ref{sec:accurate-timing}, our best acheivable speed was 1000bits/s.
+
+There is, however, still some overhead for the preamble (see Section~\ref{sec:testseutup}).
+It is a fixed size of 10 bytes regardless of the message,
+so the relative overhead tends to $0\%$ as the message size increases.
 
 \section{Reliability}
 % TODO
 % TODO how to measure reliability
 % TODO measured reliability
-% TODO measured reliability without colocation problems
-% TODO comparison with theoretical colocation probability
+% TODO measured reliability without co-location problems
+% TODO comparison with theoretical co-location probability
 
 %--- CONCLUSION ----------------------------------------------------------------
 
