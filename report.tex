@@ -291,7 +291,7 @@ To evaluate and measure different approaches, we set up a test scenario for Java
 It consists of two web pages communicating with each other solely over JavaSQUIP.
 
 \section {Test setup}
-\label{sec:testseutup}
+\label{sec:testsetup}
 The test setup is comprised of two webpages: a sender and a receiver.
 The sender simulates the target, and the receiver simulates a page that is controlled by the attacker.
 Because the attacker has little or no control over the target, we kept the sender page minimal.
@@ -307,23 +307,37 @@ If the receiver sees two ascending bytes between 100 and 109, it is highly likel
 a message was detected.
 For easier evaluation of the transmission accuracy, the message is also stored on the receiver's side,
 so that the number of "faulty 1" and "faulty 0" bits can be automatically calculated.
-
+In our test setup, messages of 500 random bytes were sent at a transmission speed of 1000bits/s.
+This results in a transmission time of $\frac{500 \dot 8}{1000} = 4$ seconds.
 
 \section{Speed}
 The sender and receiver need to know the desired transmission speed beforehand to match up their timeslices.
 This means that the transmission speed is a fixed value and needs no further calculation.
 Due to reasons explained in Section~\ref{sec:accurate-timing}, our best acheivable speed was 1000bits/s.
 
-There is, however, still some overhead for the preamble (see Section~\ref{sec:testseutup}).
+There is, however, still some overhead for the preamble (see Section~\ref{sec:testsetup}).
 It is a fixed size of 10 bytes regardless of the message,
 so the relative overhead tends to $0\%$ as the message size increases.
 
 \section{Reliability}
-% TODO
-% TODO how to measure reliability
-% TODO measured reliability
-% TODO measured reliability without co-location problems
-% TODO comparison with theoretical co-location probability
+There are two aspects that affect the reliability of the covert channel:
+First, the sender being co-located with a receiver, and second, the resilience of the covert channel against noise.
+
+To measure the actual co-location probability, we used the preamble system as described in Section~\ref{sec:testsetup}.
+Threads are unlikely to be relocated during the 4 seconds of a transmission,
+and the preamble is likely to be recognised if co-location is given (see noise resilience further down).
+We can conclude that the rate of recognised preambles is a good measurement for the actual co-location probability.
+Further, the resilience to noise can be measured by the accuracy of a message when the preamble was recognised.
+
+In our tests, we found an average co-location probability of $88.7\%$ in a Zen 3 architecture and $96\%$ in Zen 4.
+This is consistent with the theoretical $93.3\%$ calculated in Section~\ref{sec:co-location}.
+When tested under stress with \texttt{stress --cpu 1}, we achieved an average co-location probability of $53.7\%$.
+
+For measuring noise resistance, we only looked at those transmissions where the preamble was recognised.
+This resulted in an average transmission accuracy of $99.2\%$ on Zen 3, and $99.3\%$ on Zen 4.
+With \texttt{stress --cpu 1}, we observed an accuracy of $74\%$.
+
+% TODO graphs
 
 %--- CONCLUSION ----------------------------------------------------------------
 
