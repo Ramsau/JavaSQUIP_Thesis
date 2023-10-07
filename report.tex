@@ -71,8 +71,10 @@ As with any attack, porting this side channel to the web would greatly increase 
 
 In this paper, we present the JavaSQUIP attack, which is a port of SQUIP~\cite{squip} to JavaScript.
 We look into the security measures used in common browsers to prevent timing attacks, and show how we worked around them successfully.
-Our covert channel can provide communication across separate browser instances at a speed of 1000 bits/s, which is faster than any current covert channel of this type.
-% TODO add eval data
+
+Our covert channel can provide communication across separate browser instances at a speed of 1000 bits/s,
+which is faster than any current covert channel of this type.
+At this speed, we were able to achieve a transmission accuracy of $99.2\%$ and $99.3\%$ on Zen 3 and Zen 4 respectively.
 
 JavaSQUIP makes it clear that current browsers have not yet been able to adapt to be secure in light of the ever increasing complexity of modern CPUs.
 Our findings suggest that making these attacks impossible may not even be feasible because the drawbacks in performance and features would be too large.
@@ -118,7 +120,6 @@ In this paper, we present JavaSQUIP, a browser-based covert channel using the SQ
 We show that it is reliable and faster than approaches based on CPU architectures with a single scheduler queue.
 We develop a framework for transmitting data between separate instances of a browser at speeds of up to 1000 bit/s.
 
-% TODO Update outline
 \paragraph{Outline.}
 In Section~\ref{ch:background}, we provide relevant background information on pipelines, schedulers and scheduler queue contention.
 We also observe several challenges that come with trying to implement a timing attack in a browser.
@@ -205,6 +206,7 @@ All three of these are needed to mount the SQUIP attack.
 \subsection{Timing functions}\label{subsec:timingjs}
 There are two contenders for timing measurements in JavaScript: \texttt{Date.now()}~\cite{datenow} and \texttt{performance.now()}~\cite{performancenow}.
 
+% TODO add "time since 1.1.1980"
 % TODO word repetition
 The \texttt{Date.now()}~\cite{datenow} function gives a synchronized Unix epoch timestamp with millisecond accuracy.
 This is synchronized across all contexts and browser instances.
@@ -249,7 +251,11 @@ JavaSQUIP needs two kinds of timing in order to work properly:
 \end{itemize}
 
 For the synchronized clock, we can use \texttt{Date.now()}~\cite{datenow}, which has a 1ms accuracy.
-This method only works for transmissions of up to 1000 bits/s, since there is no more precise timestamp in JavaScript which is synchronized across browser instances.
+This allows us to partition the duration of the transmission into 1ms timeslices.
+During one timeslice, a single bit can be transmitted by the existence or absence of port contention.
+The alignment of bytes is solved by starting the transmission on a multiple of 8 timeslices since the start of the epoch (see \ref{subsec:timingjs}).
+Synchronizing with \texttt{Date.now()}~\cite{datenow} only works for transmissions of up to 1000 bits/s,
+since there is no more precise timestamp in JavaScript which is synchronized across browser instances.
 
 %To get around this and realize a faster transmission than 1000 bits/s, we propose implementing the Manchester Code~\cite{manchesterEncoding}.
 %It is self-synchronizing, which eliminates the need for an external source of synchronisation.
@@ -260,8 +266,6 @@ Since no timing function in JavaScript gives a better accuracy than 0.1ms, we ne
 
 We solved this with a counting worker, which continually increases one variable in the \texttt{SharedArrayBuffer}.
 As explained in section \ref{subsec:multithreading}, the other receiver workers can then access this counter and use it to measure execution times with adequate accuracy.
-
-%TODO explain timeslices, start of bytes
 
 \section{Co-locating with the sender}
 \label{sec:co-location}
@@ -313,7 +317,7 @@ This results in a transmission time of $\frac{500 \dot 8}{1000} = 4$ seconds.
 \section{Speed}
 The sender and receiver need to know the desired transmission speed beforehand to match up their timeslices.
 This means that the transmission speed is a fixed value and needs no further calculation.
-Due to reasons explained in Section~\ref{sec:accurate-timing}, our best acheivable speed was 1000bits/s.
+Due to reasons explained in Section~\ref{sec:accurate-timing}, our best achievable speed was 1000bits/s.
 
 There is, however, still some overhead for the preamble (see Section~\ref{sec:testsetup}).
 It is a fixed size of 10 bytes regardless of the message,
@@ -343,14 +347,15 @@ With \texttt{stress --cpu 1}, we observed an accuracy of $74\%$.
 
 \chapter{Conclusion}
 \label{ch:conclusion}
-% TODO: adapat conclusion
 In this paper, we ported the SQUIP~\cite{squip} attack to a JavaScript context, thus creating the JavaSQUIP covert channel.
 JavaSQUIP has achieved a transmission rate of 1000 bits/s, proving an advantage in performance over attacking single-scheduler based architectures~\cite{Rokicki2022webport}.
+Additionally, we proved a co-location rate of $88.7\%$/$96\%$ with a transmission accuracy of $99.2\%$/$99.3\%$ (Zen 3/Zen 4).
 This shows that architectures with multiple scheduler queues present a bigger attack surface than their single-scheduler counterparts.
 
 JavaSQUIP breaks the sandboxing model of a web browser context.
 This means that one browser instance can communicate with another without using the network, thus being virtually undetectable for an unknowing victim.
 This could potentially be used by malicious code within a website -- no matter its origin -- to exfiltrate data to another browser instance on the same computer.
+Its speed and accuracy enable an attacker to transmit large amounts of data, such as images or short audio clips, within the lifetime of a malicious web page.
 
 Though security updates in modern browsers slow down and hinder timing attacks, microarchitectural attacks have not yet been eliminated.
 JavaSQUIP mostly uses JavaScript features that have already been restricted to improve security as much as feasible;
