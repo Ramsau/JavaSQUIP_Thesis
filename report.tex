@@ -10,8 +10,10 @@
 \usepackage{lmodern}
 \addtokomafont{disposition}{\rmfamily}
 
-% Hack chapter layout - don't use in other papers!
-\usepackage{etoolbox}
+\usepackage[bsc,             % for Bachelor's Thesis titlepage
+%project,        % for Master's Project titlepage
+    claim,iaik]{iaikthesis}
+
 \makeatletter\patchcmd{\scr@startchapter}{\if@openright\cleardoublepage\else\clearpage\fi}{}{}{}\makeatother
 
 % Useful packages for complex content:
@@ -46,21 +48,32 @@
 
 %--- FRONT MATTER --------------------------------------------------------------
 
-\title{JavaSQUIP}
-\subtitle{An application of a scheduler queue-based covert channel to JavaScript}
-\author{Christoph Royer}
-% TODO change to Backelor's thesis
-\date{Introduction to Scientific Working 2022/23\bigskip\bigskip}
-\publishers{\normalsize
-  Supervisor:
-  Stefan Gast
-  \medskip\par
-  Institute of Applied Information Processing and Communications\\
-  Graz University of Technology
+%--- INSERT INFORMATION FOR TITLEPAGE ------------------------------------------
+
+% Your name + previous academic degrees:
+\thesisauthor{Christoph Royer}
+
+% Title of your thesis:
+\thesistitle{JavaSQUIP\\An application of a scheduler queue-based covert channel to JavaScript}
+
+% Date of completion:
+\thesisdate{Month Year}
+
+% Supervisor:
+%\supervisortitle{Supervisors}
+\supervisor{%
+    Advisor: Stefan Gast\\
+    Supervisor: Daniel Gruss
+    \smallskip
+
+    Institute of Applied Information Processing and Communications\\
+    Graz University of Technology
 }
 
+% Name of your degree programme according to your curriculum
+\curriculum{Computer Science}
 
-\maketitle
+\printthesistitle
 
 \chapter*{\centering\Large Abstract}
 \label{ch:abstract}
@@ -231,16 +244,19 @@ All three of these are needed to mount the SQUIP attack.
 \subsection{Timing functions}\label{subsec:timingjs}
 There are two contenders for timing measurements in JavaScript: \texttt{Date.now()}~\cite{datenow} and \texttt{performance.now()}~\cite{performancenow}.
 
-% TODO add "time since 1.1.1980"
-% TODO word repetition
 The \texttt{Date.now()}~\cite{datenow} function gives a synchronized Unix epoch timestamp with millisecond accuracy.
-This is synchronized across all contexts and browser instances.
+The Unix epoch time is essentially the time elapsed since January 1, 1970 and is the same for all processes on a computer.
+This makes \texttt{Date.now()} a cross-instance synchronized timestamp.
 
-% TODO timeorigin
-\texttt{performance.now()} measures the time elapsed since the \textit{time origin} of the current context.
+\texttt{performance.now()}~\cite{performancenow} measures the time elapsed since the \textit{time origin} of the current context.
 This means that \texttt{performance.now()} gives different values between browser instances, and even between a main thread and its worker threads.
+Timing information from \texttt{performance.now()} can still be synchronized;
+The \texttt{performance.timeOrigin}~\cite{performanceTimeOrigin} property gives an accurate timestamp with 1 ms accuraccy.
+
 The accuracy of \texttt{performance.now()} has been heavily restricted by browsers to counteract the threat of timing attacks.
 For example, in Firefox it has an accuracy of 1 ms, and in Chrome it measures with an accuracy of 0.1 ms~\cite{performancenow, performancenowchrome}.
+
+Thus both \texttt{Date.now()} and \texttt{performance.now()} give a synchronized timestamp with 1 ms accuracy, making them viable options for synchronization.
 
 \subsection{Multithreading}\label{subsec:multithreading}
 Though JavaScript does not support low-level control over threading, the \texttt{Web Workers} API~\cite{webworkers} allows the user to create workers running in a separate thread.
@@ -283,7 +299,7 @@ Synchronizing with \texttt{Date.now()}~\cite{datenow} only works for transmissio
 since there is no more precise timestamp in JavaScript which is synchronized across browser instances.
 
 %To get around this and realize a faster transmission than 1000 bits/s, we propose implementing the Manchester Code~\cite{manchesterEncoding}.
-%It is self-synchronizing, which eliminates the need for an external source of synchronisation.
+%It is self-synchronizing, which eliminates the need for an external source of synchronization.
 %The actual implementation is not within the scope of this paper.
 
 The receiver also needs a way to measure the small variations in timing whenever a scheduler queue gets blocked.
@@ -309,8 +325,24 @@ Thus, the theoretical co-location probability is $\frac{14}{15} \approx 93.3\%$
 \section{Targeting a scheduler queue}
 JavaSQUIP targets AMD Zen, Zen2, and Zen3;
 these architectures support multiplication only on ALU1~\cite{AMD2020OptimizationEPYC7003}.
-JavaSQUIP fills up the scheduler queue of ALU1 by making multiple codependent calls to \texttt{Math.imul()}, which translate to the \texttt{imul} instruction.
+When sending a 1, JavaSQUIP makes multiple codependent calls to \texttt{Math.imul()}, which translate to the \texttt{imul} instruction.
+This fills up the scheduler queue of ALU1, eventually causing a queue stall.
+The codependence of the \texttt{imul} operations ensures that they have to be executed one after the other, in order.
+It is ensured simply by using the result of one operation as the input for the next.
+% TODO code snippet for codependence
 
+\section{Detecting port contention}
+% TODO detecting port contention
+
+\section{Optimization}
+JavaSQUIP is intended to show SQUIP's potential as an attack in a browser setting.
+Because of this, we aimed to make it as fast and stable as possible.
+
+%Todo
+\subsection{Thresholding}
+
+%todo
+\subsection{oida wos woas i wos no}
 
 %--- EVALUATING JAVASQUIP --------------------------------------------------------------
 \chapter{Evaluating JavaSQUIP}
