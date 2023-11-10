@@ -189,11 +189,26 @@ These \textmu ops can be distributed across specialized execution units, enablin
 \textbf{Schedule/Execute.}
 Once created, the \textmu ops are queued to be executed as soon as their dependencies are met -- sometimes out of the order of their arrival.
 Depending on the CPU microarchitecture, there can be one general scheduler queue for all execution units, or multiple.
-% TODO: check/add citations
-While \textbf{INTEL?} uses one scheduler queue for all its execution units, architectures like \textbf{AMD's Zen2 and Zen3?} use several specialized scheduler queues.
-Specialized scheduler queues can be made smaller, thus saving space on the chip.
+While Intel uses one scheduler queue for all its execution units~\cite{Intel_opt},
+architectures like AMD's Zen2~\cite{AMD2020OptimizationEPYC7002} and Zen3~\cite{AMD2020OptimizationEPYC7003} use several specialized scheduler queues.
+With multiple scheduler queues, developers can specialize queues for a specific \textmu op or class of \textmu ops.
+Figures \ref{fig:amdzen2} and \ref{fig:amdzen3} illustrate the concept.
+Splitting the scheduler queue reduces complexity and enables more efficient power usage.
 The downside is -- as we will see in the following paragraphs -- that these smaller queues can be exploited for side channel attacks.
 An attacker that is co-located to a victim has two vectors for a timing attack: \textit{port contention} and \textit{scheduler queue contention}.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.5\textwidth]{figures/Zen2 arch}
+
+    \caption{The scheduler layout in AMD Zen2 (c.f.~\cite{AMD2020OptimizationEPYC7002})}
+    \label{fig:amdzen2}
+
+    \includegraphics[width=0.5\textwidth]{figures/Zen3 arch}
+
+    \caption{The scheduler layout in AMD Zen3 (c.f.~\cite{AMD2020OptimizationEPYC7003})}
+    \label{fig:amdzen3}
+\end{figure}
 
 SMoTherSpectre~\cite{Bhattacharyya2019} and PortSmash~\cite{Aldaya2019port} implement port contention.
 They use the fact that only one of the two threads in an SMT-enabled core can use an execution unit in a single cycle.
@@ -215,14 +230,6 @@ Also, SQUIP~\cite{squip} can measure execution times on different execution unit
 All of this makes SQUIP~\cite{squip} a faster and more reliable side channel than port-contention based side channels.
 Because of this, JavaSQUIP aims to port this vulnerability to a browser environment.
 
-% TODO add Zen3
-\begin{figure}
-    \centering
-    \includegraphics[width=0.5\textwidth]{figures/Zen2 arch}
-
-    \caption{The scheduler layout in AMD Zen2 (c.f.~\cite{AMD2017OptimizationEPYC7001})}
-    \label{fig:amdzen2}
-\end{figure}
 
 \textbf{Retire.}
 After all the \textmu ops of an instruction have completed, the \textit{retire control unit} (RCU) reassembles the results.
