@@ -221,7 +221,20 @@ A queue stall occurs when more \textmu ops of a particular type are created than
 Because the CPU cannot drop any \textmu ops, it has to stall the loading of new instructions entirely until the scheduler queue is free again.
 The attacker can measure this easily because it entails a significant spike in execution time --
 not only for instructions in the affected queue, but on the whole core.
-% TODO visualisation of sqc
+\ref{fig:amdzen2sqc} shows how one instruction stream can stall the other just by filling up the relatively small scheduler queue.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.75\textwidth]{figures/Zen2 normal operation}
+
+    \caption{An AMD Zen2 processor in normal operation: the two instruction streams do not impede each other}
+    \label{fig:amdzen2normaloperation}
+
+    \includegraphics[width=0.75\textwidth]{figures/Zen2 sqc}
+
+    \caption{An AMD Zen2 processor exhibiting scheduler queue contention: a stall on the Scheduler queue for ALU1 stalls both instruction streams}
+    \label{fig:amdzen2sqc}
+\end{figure}
 
 SQUIP~\cite{squip} is limited in its applicable CPU architectures because it relies on the split-scheduler architecture of AMD Zen2 and Zen3 CPUs to distinguish between \textmu ops.
 However its advantage is a higher transmission rate compared to port contention.
