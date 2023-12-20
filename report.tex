@@ -376,7 +376,8 @@ The only way that the sender is not co-located with a receiver is that the sende
 which is a $\frac{1}{15}$ chance.
 Thus, the theoretical co-location probability is $\frac{14}{15} \approx 93.3\%$
 
-% TODO link to graphics
+% TODO figuring out the co-located worker
+
 \section{Targeting a scheduler queue}
 JavaSQUIP targets AMD Zen, Zen2, and Zen3;
 these architectures support multiplication only on ALU1~\cite{AMD2020OptimizationEPYC7003}.
@@ -420,6 +421,7 @@ function send_one(until) {
 \end{lstlisting}
 
 \section{Detecting scheduler queue contention}
+\label{sec:detect-sqc}
 The receiving process needs to detect whether the sender has sent a \texttt{1} or a \texttt{0}.
 This is equivalent to detecting scheduler queue contention.
 This was implemented by issuing several \texttt{imul} instructions,
@@ -488,17 +490,45 @@ All of the bits that were wrongly registered as \texttt{1} or wrongly \texttt{0}
 Then the delay threshold was adjusted until fault 1's and faulty 0's were approximately equally frequent,
 meaning that no skew toward high or low bits is present and the delay threshold is set optimally.
 
-%todo
-\subsection{Sender amount of instructions}
+\subsection{Number of instructions for a queue stall}
+The sender blocks a targeted scheduler queue by sending a large number of instructions to it.
+The number of instructions is another tunable parameter:
+it needs to be big enough to cause a queue stall and a spike in execution time,
+yet it needs to be as small as possible to minimise chance of a stall bleeding into the following timeslice.
 
-% Todo
-\subsection{Receiver amount of instructions}
+To tune the number of \texttt{imul} instructions, a bleed-over test was constructed.
+It test consists of a string of alternating \texttt{1}s and \texttt{0}s, so contrasts between different bits could be easily observed.
+The amount of \texttt{imul} instructions was tuned by successively reducing the number and running a test.
+As soon as no spike in execution time was registered (see \textbf{image todo}), the lower limit was found.
 
-% Todo
-\subsection{iterations per round}
+\subsection{Minimising contention by the receivers}
+The receiver detects a queue stall by measuring the time delay for an \texttt{imul} instruction.
+To get a more stable result, several successive \texttt{imul} instructions were used.
+The goal here was to get reliable results, while minimising the contention caused by the receivers themselves.
+This is helpful in the transmission, as it reduces the contention for two co-located receivers,
+maximizing the contrast to the receiver that is co-located with the sender (see \ref{sec:co-location})
 
-% Todo
-\subsection{Delay loop}
+The detection test was constructed similarly to the bleed-over test:
+alternating \texttt{1}s and \texttt{0}s were received, and the delays measured.
+The number of \texttt{imul} instructions in the receiver worker was reduced until no signal was retreivable,
+resulting in a lower bound for the number of \texttt{imul} instructions in the receiver worker.
+
+In addition to tuning the number of \texttt{imul} instructions, two more optimizations were done in the receiver worker:
+buffer instructions and a delay loop. \\
+In the measurement function, 10 \texttt{sqrt} instructions serve as a buffer to delay the \texttt{imul} instrucions:
+they delay the execution, while not creating contention on ALU1.
+The implementation can be seen in \ref{sec:detect-sqc}.\\
+A delay loop was added after each measurement to give the scheduler queue time to recover from the interference of the measurement.
+Since no normal delay function gives a better accuracy than 1ms, a busy-waiting loop was used.
+The following code shows the delay loop that was executed after each measurement.
+\begin{lstlisting}[language=JavaScript]
+let k = 0|0;
+while(k < 1000|0) {
+  dummy  ^= k|0;
+  k += 1;
+}
+\end{lstlisting}
+
 
 %--- EVALUATING JAVASQUIP --------------------------------------------------------------
 \chapter{Evaluating JavaSQUIP}
