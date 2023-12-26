@@ -376,7 +376,15 @@ The only way that the sender is not co-located with a receiver is that the sende
 which is a $\frac{1}{15}$ chance.
 Thus, the theoretical co-location probability is $\frac{14}{15} \approx 93.3\%$
 
-% TODO figuring out the co-located worker
+To figure out which receiver is the one co-located with the sender,
+we need to take advantage of some characteristic of the transmission.
+With some optimisations of the receiver workers -- described closer in \ref{sec:reducecontention} --
+we were able to get the contention of two co-located receiver workers very low.
+The counting thread does not cause much contention either.
+This means that if a \texttt{1} is sent, it will cause the biggest scheduler queue contention among all of the physical cores.
+Detecting the correct receiver worker is now a matter of selecting the receiver with the highest contention;
+this will correctly identify the co-located receiver if a \texttt{1} is sent, and a random receiver if a \texttt{0} is sent.
+Since in this case all receivers report low contention, a \texttt{0} is still registered regardless of the selected receiver.
 
 \section{Targeting a scheduler queue}
 JavaSQUIP targets AMD Zen, Zen2, and Zen3;
@@ -415,7 +423,7 @@ function send_one(until) {
     i = Math.imul(i|0, j|0) | 0;
   }
 
-  // use the result so the calculation is not optimized away
+  // use the result so the calculation is not optimised away
   dummy[1] ^= i|0;
 }
 \end{lstlisting}
@@ -476,7 +484,7 @@ The \texttt{squip} function is run repeatedly, summing up the return values of e
 At the end of the timeslice, this sum is compared to a threshold.
 If it is above the threshold, a \texttt{1} is registered, else a \texttt{0}.
 
-\section{Optimization}
+\section{Optimisation}
 JavaSQUIP is intended to show SQUIP's potential as an attack in a browser setting.
 Because of this, we aimed to make it as fast and stable as possible.
 
@@ -487,8 +495,20 @@ If the threshold is too high or too low, results are skewed towards registering 
 
 To tune this parameter, the resulting bitstream was checked against the actual sent stream.
 All of the bits that were wrongly registered as \texttt{1} or wrongly \texttt{0} were tallied up separately.
-Then the delay threshold was adjusted until fault 1's and faulty 0's were approximately equally frequent,
+Then the delay threshold was adjusted until faulty \texttt{1}'s and faulty \texttt{0}'s were approximately equally frequent,
 meaning that no skew toward high or low bits is present and the delay threshold is set optimally.
+
+\ref{fig:contentiontest} shows the contention of every reciever thread during such a test.
+One can easily see that receiver 5 is co-located with the sender;
+it registers alternating high and low contention, in accordance with the alternating \texttt{1}'s and \texttt{0}'s sent by the sender.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.75\textwidth]{figures/contentiontest}
+
+    \caption{Execution time per timeslice during a test run of sending alternating \texttt{0}'s and \texttt{1}'s}
+    \label{fig:contentiontest}
+\end{figure}
 
 \subsection{Number of instructions for a queue stall}
 The sender blocks a targeted scheduler queue by sending a large number of instructions to it.
@@ -502,6 +522,7 @@ The amount of \texttt{imul} instructions was tuned by successively reducing the 
 As soon as no spike in execution time was registered (see \textbf{image todo}), the lower limit was found.
 
 \subsection{Minimising contention by the receivers}
+\label{sec:reducecontention}
 The receiver detects a queue stall by measuring the time delay for an \texttt{imul} instruction.
 To get a more stable result, several successive \texttt{imul} instructions were used.
 The goal here was to get reliable results, while minimising the contention caused by the receivers themselves.
@@ -513,7 +534,7 @@ alternating \texttt{1}s and \texttt{0}s were received, and the delays measured.
 The number of \texttt{imul} instructions in the receiver worker was reduced until no signal was retreivable,
 resulting in a lower bound for the number of \texttt{imul} instructions in the receiver worker.
 
-In addition to tuning the number of \texttt{imul} instructions, two more optimizations were done in the receiver worker:
+In addition to tuning the number of \texttt{imul} instructions, two more optimisations were done in the receiver worker:
 buffer instructions and a delay loop. \\
 In the measurement function, 10 \texttt{sqrt} instructions serve as a buffer to delay the \texttt{imul} instrucions:
 they delay the execution, while not creating contention on ALU1.
@@ -529,6 +550,9 @@ while(k < 1000|0) {
 }
 \end{lstlisting}
 
+\ref{fig:contentiontest} demonstrates these measures working:
+Receiver 5 -- which is co-located with the sender -- receives a clean signal of alternating \texttt{1}'s and \texttt{0}'s.
+Meanwhile, all the remaining receivers -- which are co-located either with each other or with the counting thread -- show very little contention.
 
 %--- EVALUATING JAVASQUIP --------------------------------------------------------------
 \chapter{Evaluating JavaSQUIP}
@@ -584,7 +608,18 @@ For measuring noise resistance, we only looked at those transmissions where the 
 This resulted in an average transmission accuracy of $99.2\%$ on Zen 3, and $99.3\%$ on Zen 4.
 With \texttt{stress --cpu 1}, we observed an accuracy of $74\%$.
 
-% TODO graphs
+\ref{fig:contentiontest_stress} shows the effect of outside CPU stress on the measurement.
+Although the \texttt{stress} command creates more noise in the measurement, the overall contention levels go down (compare with \ref{fig:contentiontest}).
+This is because \texttt{stress} does not target a specific scheduler queue, but instead takes up CPU time with a varied set of instructions.
+The result is more relocation of threads (the sending thread is first co-located with receiver 13, later with receiver 7), and less contention.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.75\textwidth]{figures/contentiontest_stress}
+
+    \caption{Execution time per timeslice during a test run of sending alternating \texttt{0}'s and \texttt{1}'s with \texttt{stress --cpu 1}}
+    \label{fig:contentiontest_stress}
+\end{figure}
 
 %--- CONCLUSION ----------------------------------------------------------------
 
