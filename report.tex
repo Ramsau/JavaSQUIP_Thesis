@@ -115,7 +115,7 @@
 \label{ch:abstract}
 The implementation of out-of-order execution has brought a big performance benefit to current CPUs.
 But with this benefit also come security concerns, since attackers can exploit the timing variations which are bound to occur in an out-of-order pipeline.
-Attacks which target only one execution unit through a separate scheduler queue -- as seen in the Apple M1 and AMD Zen 2 and Zen 3 microarchitectures -- have proven even more powerful than port contention on single-scheduler systems.
+Attacks which target only one execution unit through a separate scheduler queue -- as seen in the Apple M1 and AMD Zen 3 and Zen 4 microarchitectures -- have proven even more powerful than port contention on single-scheduler systems.
 As with any attack, porting this side channel to the web would greatly increase its reach and number of victims.
 
 In this paper, we present the JavaSQUIP attack, which is a port of SQUIP~\cite{squip} to JavaScript.
@@ -158,7 +158,7 @@ In this way, the attacker can gain knowledge on the victim's execution based on 
 SQUIP~\cite{squip} focuses on CPUs with multiple specialized scheduler queues to implement \textit{scheduler queue contention}.
 Because each scheduler deals with fewer execution units, the attacker can push one of the comparatively small scheduler queues close to its capacity.
 If the victim also adds to the queue, the pipeline stalls, which results in a big spike in execution time
-This makes SQUIP~\cite{squip} a fast and reliable covert channel on many modern CPU architectures such as the AMD Zen 2 and Zen 3.
+This makes SQUIP~\cite{squip} a fast and reliable covert channel on many modern CPU architectures such as the AMD Zen 3 and Zen 4.
 
 Since implementations of port contention-based side channels in a browser setting already exist~\cite{Rokicki2022webport}, we ask the following research question:
 
@@ -225,7 +225,7 @@ These \textmu ops can be distributed across specialized execution units, enablin
 Once created, the \textmu ops are queued to be executed as soon as their dependencies are met -- sometimes out of the order of their arrival.
 Depending on the CPU microarchitecture, there can be one general scheduler queue for all execution units, or multiple.
 While Intel uses one scheduler queue for all its execution units~\cite{Intel_opt},
-architectures like AMD's Zen2~\cite{AMD2020OptimizationEPYC7002} and Zen3~\cite{AMD2020OptimizationEPYC7003} use several specialized scheduler queues.
+architectures like AMD's Zen~2~\cite{AMD2020OptimizationEPYC7002}, Zen~3~\cite{AMD2020OptimizationEPYC7003} and Zen~4~\cite{AMDZen4} use several specialized scheduler queues.
 With multiple scheduler queues, developers can specialize queues for a specific \textmu op or class of \textmu ops.
 Figures \ref{fig:amdzen2} and \ref{fig:amdzen3} illustrate the concept.
 Splitting the scheduler queue reduces complexity and enables more efficient power usage.
@@ -236,12 +236,12 @@ An attacker that is co-located to a victim has two vectors for a timing attack: 
     \centering
     \includegraphics[width=0.5\textwidth]{figures/Zen2 arch}
 
-    \caption{The scheduler layout in AMD Zen2 (c.f.~\cite{AMD2020OptimizationEPYC7002})}
+    \caption{The scheduler layout in AMD Zen~2 (c.f.~\cite{AMD2020OptimizationEPYC7002})}
     \label{fig:amdzen2}
 
     \includegraphics[width=0.5\textwidth]{figures/Zen3 arch}
 
-    \caption{The scheduler layout in AMD Zen3 (c.f.~\cite{AMD2020OptimizationEPYC7003})}
+    \caption{The scheduler layout in AMD Zen~3 (c.f.~\cite{AMD2020OptimizationEPYC7003})}
     \label{fig:amdzen3}
 \end{figure}
 
@@ -262,16 +262,16 @@ not only for instructions in the affected queue, but on the whole core.
     \centering
     \includegraphics[width=0.75\textwidth]{figures/Zen2 normal operation}
 
-    \caption{An AMD Zen2 processor in normal operation: the two instruction streams do not impede each other}
+    \caption{An AMD Zen~2 processor in normal operation: the two instruction streams do not impede each other}
     \label{fig:amdzen2normaloperation}
 
     \includegraphics[width=0.75\textwidth]{figures/Zen2 sqc}
 
-    \caption{An AMD Zen2 processor exhibiting scheduler queue contention: a stall on the Scheduler queue for ALU1 stalls both instruction streams}
+    \caption{An AMD Zen~2 processor exhibiting scheduler queue contention: a stall on the Scheduler queue for ALU1 stalls both instruction streams}
     \label{fig:amdzen2sqc}
 \end{figure}
 
-SQUIP~\cite{squip} is limited in its applicable CPU architectures because it relies on the split-scheduler architecture of AMD Zen2 and Zen3 CPUs to distinguish between \textmu ops.
+SQUIP~\cite{squip} is limited in its applicable CPU architectures because it relies on the split-scheduler architecture of AMD Zen~2, Zen~3 and Zen~4 CPUs to distinguish between \textmu ops.
 However its advantage is a higher transmission rate compared to port contention.
 The bigger spikes in execution times of a stalled scheduler queue (whole CPU) compared to port contention (one execution unit) make measurement easier.
 Also, SQUIP~\cite{squip} can measure execution times on different execution unit than the one producing the stalls.
@@ -367,7 +367,8 @@ As explained in section \ref{subsec:multithreading}, the other receiver workers 
 \label{sec:co-location}
 For co-locating the receiver with the sender, the receiver creates as many receiving workers as the number of virtual cores in the machine, minus two:
 one for the counting thread (see \ref{sec:accurate-timing}), and one for the sending thread.
-For the 8-core CPUs we used in our experiments (TODOCPU), this comes to $8 \times 2 - 2 = 14$ receiver workers.
+In our experiments, we used an \textit{AMD Ryzen 7 5800X} as representative for Zen~3 and an \textit{AMD Ryzen 7 7700X} as representative for Zen~4.
+Both are 8-core CPUs, so the experiments were run with $8 \times 2 - 2 = 14$ receiver workers.
 Since every thread does continuous work, each thread will most likely be assigned to a unique virtual core.
 
 To receive the message, one of the worker threads needs to be co-located with the sending thread.
@@ -387,7 +388,7 @@ this will correctly identify the co-located receiver if a \texttt{1} is sent, an
 Since in this case all receivers report low contention, a \texttt{0} is still registered regardless of the selected receiver.
 
 \section{Targeting a scheduler queue}
-JavaSQUIP targets AMD Zen, Zen2, and Zen3;
+JavaSQUIP targets AMD Zen~2, Zen~3 and Zen~4;
 these architectures support multiplication only on ALU1~\cite{AMD2020OptimizationEPYC7003}.
 When sending a 1, JavaSQUIP makes multiple codependent calls to \texttt{Math.imul()}, which translate to the \texttt{imul} instruction.
 This fills up the scheduler queue of ALU1, eventually causing a queue stall.
@@ -519,7 +520,9 @@ yet it needs to be as small as possible to minimise chance of a stall bleeding i
 To tune the number of \texttt{imul} instructions, a bleed-over test was constructed.
 It test consists of a string of alternating \texttt{1}s and \texttt{0}s, so contrasts between different bits could be easily observed.
 The amount of \texttt{imul} instructions was tuned by successively reducing the number and running a test.
-As soon as no spike in execution time was registered (see \textbf{image todo}), the lower limit was found.
+As soon as no spike in execution time was registered, the lower limit was found.
+\ref{fig:contentiontest} shows the final tuned system;
+the spikes for a \texttt{1} are pronounced, while the execution time in a \texttt{0}-timeslice is only slightly higher than for the remaining receivers.
 
 \subsection{Minimising contention by the receivers}
 \label{sec:reducecontention}
@@ -563,13 +566,16 @@ It consists of two web pages communicating with each other solely over JavaSQUIP
 
 \section {Test setup}
 \label{sec:testsetup}
-The test setup is comprised of two webpages: a sender and a receiver.
+Our aim was to evaluate JavaSQUIP on both the Zen~3 and Zen~4 architecture.
+To this end, we tested on an \textit{AMD Ryzen 7 5800X} as representative for Zen~3 and an \textit{AMD Ryzen 7 7700X} as representative for Zen~4.
+
+The test setup constists of two webpages: a sender and a receiver.
 The sender simulates the target, and the receiver simulates a page that is controlled by the attacker.
 Because the attacker has little or no control over the target, we kept the sender page minimal.
 The sender has only one working thread.
 The working thread is sending either a 0 (no action) or a 1 (contention with codependent \texttt{Math.imul()} calls) for each timeslice.
 With more control over the receiver, the attacker can ensure co-location from this side.
-For our tests on \textbf{TODOCPU1} (Zen2) and \textbf{TODOCPU2} (Zen3), we needed 14 receiving workers.
+For our tests on the \textit{AMD Ryzen 7 5800X}(Zen~3) and \textit{AMD Ryzen 7 7700X}(Zen~4), we needed 14 receiving workers.
 We go into more detail on co-location in Chapter~\ref{sec:co-location}.
 
 To distinguish a message from random noise on the CPU, the sender sends a preamble before the actual data.
@@ -600,12 +606,12 @@ and the preamble is likely to be recognised if co-location is given (see noise r
 We can conclude that the rate of recognised preambles is a good measurement for the actual co-location probability.
 Further, the resilience to noise can be measured by the accuracy of a message when the preamble was recognised.
 
-In our tests, we found an average co-location probability of $88.7\%$ in a Zen 3 architecture and $96\%$ in Zen 4.
+In our tests, we found an average co-location probability of $88.7\%$ in a Zen~3 architecture and $96\%$ in Zen~4.
 This is consistent with the theoretical $93.3\%$ calculated in Section~\ref{sec:co-location}.
 When tested under stress with \texttt{stress --cpu 1}, we achieved an average co-location probability of $53.7\%$.
 
 For measuring noise resistance, we only looked at those transmissions where the preamble was recognised.
-This resulted in an average transmission accuracy of $99.2\%$ on Zen 3, and $99.3\%$ on Zen 4.
+This resulted in an average transmission accuracy of $99.2\%$ on Zen~3, and $99.3\%$ on Zen~4.
 With \texttt{stress --cpu 1}, we observed an accuracy of $74\%$.
 
 \ref{fig:contentiontest_stress} shows the effect of outside CPU stress on the measurement.
@@ -627,7 +633,7 @@ The result is more relocation of threads (the sending thread is first co-located
 \label{ch:conclusion}
 In this paper, we ported the SQUIP~\cite{squip} attack to a JavaScript context, thus creating the JavaSQUIP covert channel.
 JavaSQUIP has achieved a transmission rate of 1000 bits/s, proving an advantage in performance over attacking single-scheduler based architectures~\cite{Rokicki2022webport}.
-Additionally, we proved a co-location rate of $88.7\%$/$96\%$ with a transmission accuracy of $99.2\%$/$99.3\%$ (Zen 3/Zen 4).
+Additionally, we proved a co-location rate of $88.7\%$/$96\%$ with a transmission accuracy of $99.2\%$/$99.3\%$ (Zen~3/Zen~4).
 This shows that architectures with multiple scheduler queues present a bigger attack surface than their single-scheduler counterparts.
 
 JavaSQUIP breaks the sandboxing model of a web browser context.
