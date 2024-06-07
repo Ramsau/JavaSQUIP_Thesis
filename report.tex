@@ -267,8 +267,8 @@ in the following, we will list some of the exploits that have already been found
 Each of the attacks outlined in this chapter relies on the attacker being co-located with the victim,
 i.e. being executed on the same physical core.
 
-\paragraph{Fetch.}
-Speculative Execution -- i.e. executing a path before the condition for the branch is known --
+\paragraph{Speculative Execution.}
+Executing a path before the condition for the branch is known --
 can be exploited, as was shown by Spectre~\cite{spKocherHFGGHHLM019}.
 
 First, the branch prediction unit is primed by repeatedly branching with the condition set to \textit{A}.
@@ -278,24 +278,23 @@ Since the branch prediction unit was trained to expect condition \textit{A},
 the CPU can be tricked into executing an inaccessible path.
 Under the right circumstances, this can be used to leak data from a co-located process.
 
-\paragraph{Schedule/Execute.}
-%TODO: make pretty
-The downside is -- as we will see in the following paragraphs -- that these smaller queues can be exploited for side channel attacks.
-An attacker that is co-located with a victim has two vectors for a timing attack: \textit{port contention} and \textit{scheduler queue contention}.
-
+\paragraph{Port Contention.}
 SMoTherSpectre~\cite{Bhattacharyya2019} and PortSmash~\cite{Aldaya2019port} exploit port contention.
 They use the fact that only one of the two threads in an SMT-enabled core can use an execution unit in a single cycle.
 The attacker can thus find out whether the victim is using a port by measuring the execution time of an instruction on the same port.
 Delayed execution gives away the fact that the victim is currently using that port.
+Port contention works independently of the type of scheduler queue used.
+It affects only one execution unit, and thus creates stalls and measures execution time with the same instruction.
 
-SQUIP~\cite{squip} on the other hand implements scheduler queue contention.
+\paragraph{Scheduler Queue Contention.}
+SQUIP~\cite{squip} on the other hand exploits scheduler queue contention.
 In scheduler queue contention, the attacker fills up the scheduler queue to the point that it is almost at its capacity limit;
 any activity of the victim that involves this scheduler queue will overflow the queue, leading to a queue stall.
 A queue stall occurs when more \textmu ops of a particular type are created than what the correlating scheduler queue can hold.
 Because the CPU cannot drop any \textmu ops, it has to stall the loading of new instructions entirely until the scheduler queue is free again.
 The attacker can measure this easily because it entails a significant increase in execution time --
 not only for instructions in the affected queue, but on the whole core.
-\ref{fig:amdzen2sqc} shows how one instruction stream can stall the other just by filling up the relatively small scheduler queue.
+Figure~\ref{fig:amdzen2sqc} shows how one instruction stream can stall the other just by filling up the relatively small scheduler queue.
 
 \begin{figure}
     \centering
@@ -310,21 +309,24 @@ not only for instructions in the affected queue, but on the whole core.
     \label{fig:amdzen2sqc}
 \end{figure}
 
-SQUIP~\cite{squip} is limited in its applicable CPU architectures because it relies on the split-scheduler architecture of AMD Zen~2, Zen~3 and Zen~4 CPUs to distinguish between \textmu ops.
-However its advantage is a higher transmission rate compared to port contention.
-The bigger spikes in execution times of a stalled scheduler queue (whole CPU) compared to port contention (one execution unit) make measurement easier.
-Also, SQUIP~\cite{squip} can measure execution times on different execution unit than the one producing the stalls.
+SQUIP is limited in its applicable CPU architectures because it relies on the split-scheduler architecture of AMD Zen~2, Zen~3 and Zen~4 CPUs to distinguish between \textmu ops.
+However, its advantage is a higher transmission rate compared to port contention.
+Because scheduler queue contention stalls the whole CPU, as compared to port contention stalling just one execution unit,
+a comparatively bigger increase in execution time is achieved.
+Additionally, SQUIP creates very few instuctions on the execution unit where execution times are measured,
+since stalls are produced on another unit.
+This means that the measured execution unit goes from low load to being stalled completely (see Figure~\ref{fig:amdzen2normaloperation} and Figure~\ref{fig:amdzen2sqc}).
+All of this increases the signal-to-noise ratio of the timing measurement,
+enabling shorter time slices per bit.
 All of this makes SQUIP~\cite{squip} a faster and more reliable side channel than port-contention based side channels.
-Because of this, JavaSQUIP aims to port this vulnerability to a browser environment.
-
-
-\paragraph{Retire.}
+Because of this advantage, JavaSQUIP aims to port this vulnerability to a browser environment.
 
 
 \section{Browser security measures}
 \label{sec:browsersecurity}
-Since the advent of many timing side- and covert channels~\cite{noack2018exploiting, Rokicki2022webport, gruss2016rowhammer},
-browser developers have implemented many measures to mitigate the threat~\cite{shusterman2021prime, performancenow, performancenowchrome}.
+% TODO: comparison with spectre.js
+Since the advent of many timing side- and covert channels~\cite{noack2018exploiting, Rokicki2022webport, gruss2016rowhammer, 185126},
+browser developers have implemented many measures to mitigate the threat~\cite{shusterman2021prime, performancenow, performancenowchrome, schwarz2018javascript}.
 This has always meant striking a balance between security and efficiency.
 Because of this, many potential attack surfaces cannot be eliminated without unreasonable losses in performance and functionality,
 though some measures do slow down side- and covert channels significantly.
