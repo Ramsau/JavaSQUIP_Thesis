@@ -178,6 +178,7 @@ We also observe several challenges that we will have to overcome when implementi
 Section~\ref{ch:implementation} shows how we dealt with these challenges and how we optimised JavaSQUIP for speed and reliability.
 We go into more detail on the mode and results of our evaluation of JavaSQUIP in Section~\ref{ch:evaluation}.
 Section~\ref{ch:conclusion} concludes by comparing JavaSQUIP's performance to similar attacks and outlining potential use cases.
+%TODO: reorganise
 
 
 %--- BACKGROUND ----------------------------------------------------------------
@@ -185,39 +186,27 @@ Section~\ref{ch:conclusion} concludes by comparing JavaSQUIP's performance to si
 \chapter{Background}
 \label{ch:background}
 
-In this chapter, we go into detail on CPU scheduling and how it has been exploited by prior work.
+In this chapter, we go into detail on two aspects of CPU scheduling
+-- \textit{Out-Of-Order Execution} and \textit{Simultaneous Multithreading} --
+and how they have been exploited by prior work.
 Furthermore, we take a closer look into the browser features needed to implement these exploits in JavaScript.
 
-\section{Simultaneous Multithreading}
-\label{sec:smt}
-
-As will be described in more detail in Chapter~\ref{sec:cpuschedulers},
-the cores of a modern CPU are subdivided into multiple specialized execution units.
-If only one thread would be executed on such a core,
-most of these execution units would stay unused while an instruction is executed.
-
-With \textit{Simultaneous Multithreading} (SMT), one physical core is split into two logical cores.
-This means that one core executes two threads simultaneously, distributing the workload across its execution units more effectively.
-This provides a potential speed-up of up to $100\%$ with relatively little additional architecture needed~\cite{tullsen1995simultaneous}.
-
-The two threads that are being executed on the same core are called \textit{co-located}.
-Usually, these threads should be unaffected by each other; no data are exchanged between two co-located threads.
-However, the sharing of common architecture, particularly the execution units,
-makes possible several different side-channels -- most of them timing attacks.
-A selection of these will be explained in the following chapter.
-
-\section{CPU Scheduling}
-\label{sec:cpuschedulers}
+\section{Out-Of-Order Execution}
+\label{sec:outoforderexecution}
 For performance reasons, modern CPUs use efficiency features at almost every stage of an instruction's execution.
-In the following, we will list some of these features for each of the stages along with the way they are exploitable.
-Each of the attacks outlined in this chapter relies on the attacker being co-located with the victim,
-i.e. being executed on the same physical core.
+One notable feature is \textit{Out-Of-Order Execution},
+where instructions are split up into smaller parts.
+These so-called \textit{\textmu ops} can be executed in a diffent order than the program order,
+enabling a more efficient utilisation of the CPU's resources.
+
+The following paragraphs describe the stages of an instruction in a CISC CPU,
+where Out-Of-Order Execution is utilised.
 
 \paragraph{Fetch.}
 Before an instruction can be executed, it needs to be loaded from cache or memory.
 As branches can make loading unpredictable and loading the wrong instruction is expensive, a \textit{branch prediction unit} tries to guess which path is more likely to be loaded.
 Taking this one step further, the predicted path may also be executed before the condition for the branch has been computed.
-This is called \textit{speculative execution}\cite{AMD2020OptimizationEPYC7002}, and it can be exploited, as was shown in the Spectre~\cite{spKocherHFGGHHLM019} attack.
+This is called \textit{speculative execution}\cite{AMD2020OptimizationEPYC7002}.
 
 \paragraph{Decode.}
 Modern CISC CPUs divide normal instructions into their parts when possible;
@@ -229,12 +218,10 @@ These \textmu ops can be distributed across specialized execution units, enablin
 Once created, the \textmu ops are queued to be executed as soon as their dependencies are met -- sometimes out of the order of their arrival.
 Depending on the CPU microarchitecture, there can be one general scheduler queue for all execution units, or multiple.
 While Intel uses one scheduler queue for all its execution units~\cite{Intel_opt},
-architectures like AMD's Zen~2~\cite{AMD2020OptimizationEPYC7002}, Zen~3~\cite{AMD2020OptimizationEPYC7003} and Zen~4~\cite{AMDZen4} use several specialized scheduler queues.
-With multiple scheduler queues, developers can specialize queues for a specific \textmu op or class of \textmu ops.
+architectures like AMD's Zen~2~\cite{AMD2020OptimizationEPYC7002}, Zen~3~\cite{AMD2020OptimizationEPYC7003} and Zen~4~\cite{AMD2023OptimizationZen4} use several specialized scheduler queues.
+When multiple scheduler queues are used, different queues can be specialized for a specific \textmu op or class of \textmu ops.
 Figures \ref{fig:amdzen2} and \ref{fig:amdzen3} illustrate the concept.
 Splitting the scheduler queue reduces complexity and enables more efficient power usage.
-The downside is -- as we will see in the following paragraphs -- that these smaller queues can be exploited for side channel attacks.
-An attacker that is co-located with a victim has two vectors for a timing attack: \textit{port contention} and \textit{scheduler queue contention}.
 
 \begin{figure}
     \centering
@@ -249,7 +236,54 @@ An attacker that is co-located with a victim has two vectors for a timing attack
     \label{fig:amdzen3}
 \end{figure}
 
-SMoTherSpectre~\cite{Bhattacharyya2019} and PortSmash~\cite{Aldaya2019port} implement port contention.
+\paragraph{Retire.}
+After all the \textmu ops of an instruction have completed, the \textit{retire control unit} (RCU) reassembles the results.
+It commits the finished instructions and schedules dependent instructions -- the dissection into \textmu ops is transparent to the user.
+
+\section{Simultaneous Multithreading}
+\label{sec:smt}
+
+As we described in more detail in Chapter~\ref{sec:outoforderexecution},
+the cores of a modern CPU are subdivided into multiple specialized execution units.
+If only one thread would be executed on such a core,
+most of these execution units would stay unused while an instruction is executed.
+
+With \textit{Simultaneous Multithreading} (SMT), one physical core is split into two logical cores~\cite{tullsen1995simultaneous}.
+This means that one core executes two threads simultaneously, distributing the workload across its execution units more effectively.
+This provides a potential speed-up of up to $100\%$
+(realistic tests show a performance gain of about $25\%$~\cite{Phoronix2018HT, Cutress2020SMT})
+with relatively little additional architecture needed.
+
+The two threads that are being executed on the same core are called \textit{co-located}.
+Usually, these threads should be unaffected by each other; no data is exchanged between two co-located threads.
+However, the sharing of common architecture, particularly the execution units,
+makes possible several different side-channels -- most of them timing attacks.
+A selection of these will be explained in the following chapter.
+
+\section{Exploits}
+\label{sec:exploits}
+Many of the stages of an instruction's life cycle are exploitable;
+in the following, we will list some of the exploits that have already been found.
+Each of the attacks outlined in this chapter relies on the attacker being co-located with the victim,
+i.e. being executed on the same physical core.
+
+\paragraph{Fetch.}
+Speculative Execution -- i.e. executing a path before the condition for the branch is known --
+can be exploited, as was shown by Spectre~\cite{spKocherHFGGHHLM019}.
+
+First, the branch prediction unit is primed by repeatedly branching with the condition set to \textit{A}.
+In the second step, the branch is called again, but with the condition set to \textit{B}.
+
+Since the branch prediction unit was trained to expect condition \textit{A},
+the CPU can be tricked into executing an inaccessible path.
+Under the right circumstances, this can be used to leak data from a co-located process.
+
+\paragraph{Schedule/Execute.}
+%TODO: make pretty
+The downside is -- as we will see in the following paragraphs -- that these smaller queues can be exploited for side channel attacks.
+An attacker that is co-located with a victim has two vectors for a timing attack: \textit{port contention} and \textit{scheduler queue contention}.
+
+SMoTherSpectre~\cite{Bhattacharyya2019} and PortSmash~\cite{Aldaya2019port} exploit port contention.
 They use the fact that only one of the two threads in an SMT-enabled core can use an execution unit in a single cycle.
 The attacker can thus find out whether the victim is using a port by measuring the execution time of an instruction on the same port.
 Delayed execution gives away the fact that the victim is currently using that port.
@@ -285,8 +319,6 @@ Because of this, JavaSQUIP aims to port this vulnerability to a browser environm
 
 
 \paragraph{Retire.}
-After all the \textmu ops of an instruction have completed, the \textit{retire control unit} (RCU) reassembles the results.
-It commits the finished instructions and schedules dependent instructions -- the dissection into \textmu ops is transparent to the user.
 
 
 \section{Browser security measures}
