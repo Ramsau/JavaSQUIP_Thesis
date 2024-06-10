@@ -474,6 +474,7 @@ Since no timing function in JavaScript gives a better accuracy than 0.1ms, we ne
 
 We solved this with a counting worker, which continually increases one variable in the \texttt{SharedArrayBuffer}.
 As explained in section \ref{subsec:multithreading}, the other receiver workers can then access this counter and use it to measure execution times with adequate accuracy.
+The paper on \textit{Fantastic Timers}~\cite{Schwarz2017Timers} does an excellent job on explaining the concept in-depth.
 
 \section{Co-locating with the sender}
 \label{sec:co-location}
@@ -494,15 +495,24 @@ we need to take advantage of some characteristic of the transmission.
 With some optimisations of the receiver workers -- described closer in \ref{sec:reducecontention} --
 we were able to get the contention of two co-located receiver workers very low.
 The counting thread does not cause much contention either.
-This means that if a \texttt{1} is sent, it will cause the biggest scheduler queue contention among all of the physical cores.
+This means that if a \texttt{1} is sent, the sender will cause the highest scheduler queue contention level -- i.e. the longest execution time --
+among all the physical cores.
 Detecting the correct receiver worker is now a matter of selecting the receiver with the highest contention;
 this will correctly identify the co-located receiver if a \texttt{1} is sent, and a random receiver if a \texttt{0} is sent.
 Since in this case all receivers report low contention, a \texttt{0} is still registered regardless of the selected receiver.
 
-\ref{fig:contentiontest} displays the contention of each receiver for each timeslice.
+\begin{figure}
+    \centering
+    \includegraphics[width=0.75\textwidth]{figures/contentiontest}
+
+    \caption{Execution time per timeslice during a test run of sending alternating \texttt{0}'s and \texttt{1}'s}
+    \label{fig:contentiontest}
+\end{figure}
+
+Figure~\ref{fig:contentiontest} displays the contention of each receiver for each timeslice.
 One can easily see that receiver 5 is co-located with the sender;
 it registers alternating high and low contention, in accordance with the alternating \texttt{1}'s and \texttt{0}'s sent by the sender.
-Meanwhile, the contention measured by the rest of the receivers stays low.
+Meanwhile, the contention measured by the other receivers stays low.
 
 \section{Targeting a scheduler queue}
 JavaSQUIP targets AMD Zen~2, Zen~3 and Zen~4;
@@ -613,13 +623,6 @@ meaning that no skew toward high or low bits is present and the delay threshold 
 \ref{fig:contentiontest} shows the contention of every reciever thread during such a test.
 It shows that a threshold value of $0.2$ would be optimal, giving the best margin for \texttt{0}- and \texttt{1}-transmissions.
 
-\begin{figure}
-    \centering
-    \includegraphics[width=0.75\textwidth]{figures/contentiontest}
-
-    \caption{Execution time per timeslice during a test run of sending alternating \texttt{0}'s and \texttt{1}'s}
-    \label{fig:contentiontest}
-\end{figure}
 
 \subsection{Number of instructions for a queue stall}
 The sender blocks a targeted scheduler queue by sending a large number of instructions to it.
