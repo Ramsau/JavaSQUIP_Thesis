@@ -62,12 +62,12 @@
   identifierstyle=\color{black},
   commentstyle=\color{purple}\ttfamily,
   stringstyle=\color{red}\ttfamily,
-  sensitive=true
+  sensitive=true,
 }
 
 \lstset{
    language=JavaScript,
-   backgroundcolor=\color{lightgray},
+   backgroundcolor=\color{white},
    extendedchars=true,
    basicstyle=\footnotesize\ttfamily,
    showstringspaces=false,
@@ -78,7 +78,8 @@
    tabsize=2,
    breaklines=true,
    showtabs=false,
-   captionpos=b
+   captionpos=b,
+   frame=single,
 }
 
 \begin{document}
@@ -501,13 +502,17 @@ Detecting the correct receiver worker is now a matter of selecting the receiver 
 this will correctly identify the co-located receiver if a \texttt{1} is sent, and a random receiver if a \texttt{0} is sent.
 Since in this case all receivers report low contention, a \texttt{0} is still registered regardless of the selected receiver.
 
-% TODO: better graphic, with axes and stuff
 \begin{figure}
     \centering
     \includegraphics[width=0.75\textwidth]{figures/contentiontest}
 
-    \caption{Execution time per timeslice during a test run of sending alternating \texttt{0}'s and \texttt{1}'s}
+    \caption{Average execution time per timeslice (counting thread ticks) during a test run of sending alternating \texttt{0}'s and \texttt{1}'s}
     \label{fig:contentiontest}
+    \centering
+    \includegraphics[width=0.75\textwidth]{figures/contentioncoalesced}
+
+    \caption{Average execution time per timeslice (ticks) of the co-located receiver during three test runs of sending alternating \texttt{0}'s and \texttt{1}'s}
+    \label{fig:contentioncoalesced}
 \end{figure}
 
 Figure~\ref{fig:contentiontest} displays the contention of each receiver for each timeslice.
@@ -564,15 +569,8 @@ This is equivalent to detecting scheduler queue contention.
 This was implemented by issuing several \texttt{imul} instructions,
 and measuring the delay with the help of a separate counting thread.
 
-The following code snippet shows how the receiver issues 10 \texttt{sqrt} and 20 \texttt{imul} instructions,
-retreiving the counter value before and after.
-If the retire control unit was not blocked by an overflowing scheduler queue,
-the instructions can be reordered so both reads of the counting value are right after one another.
-This results in the measured time delay being zero, which means no scheduler queue contention took place.
-If the two values are not equal, we can deduce that scheduler queue contention is in progress.
-% TODO reads weird
 
-\begin{lstlisting}[language=JavaScript]
+\begin{lstlisting}[float][language=JavaScript]
 function squip(start_value, factor) {
   start_value = +start_value;
   factor = factor|0;
@@ -604,15 +602,39 @@ function squip(start_value, factor) {
 }
 \end{lstlisting}
 
-The \texttt{squip} function is run repeatedly, summing up the return values of each iteration.
-At the end of the timeslice, this sum is compared to a threshold.
-If it is above the threshold, a \texttt{1} is registered, else a \texttt{0}.
+In this piece of code, many features of the JavaScript environment are utilised to ensure the correct behavior of the program.
+The most noticeable is the use of \texttt{|0} for many operations with numbers.
+It forces the interpretation of the given constant or variable as an integer, thus simplifying the operation.
+For example, \texttt{1.4|0 + 4.5|0} will be interpreted as an integer addition and evaluate to \texttt{5}.
+Similarly, using a variable with a \texttt{+} in front -- as in line 2 -- will force a reinterpretation as a floating-point number.
+We use \texttt{Atomics.load()}~\cite{atomicsload} to get the current value of the counting thread.
+It is an atomic operation, so thread safety and correctness of the value is ensured.
+
+The above code snippet shows how the receiver issues 10 \texttt{sqrt} and 20 \texttt{imul} instructions,
+retreiving the counter value before and after (see lines \texttt{7} and \texttt{23}).
+If the retire control unit was not blocked by an overflowing scheduler queue,
+the instructions can be reordered so both reads of the counting value are right after one another.
+This results in the measured time delay being zero, which means no scheduler queue contention took place.
+If the two values are not equal, we can deduce that the program flow was held up by scheduler queue contention.
+One can see in line \texttt{27} that we do not check the actual difference between \texttt{start\_time} and \texttt{end\_time},
+but rather only return a \texttt{1} if the two are different, and a \texttt{0} otherwise.
+Since we can assume that a difference in \texttt{start\_time} and \texttt{end\_time} is an indicator of scheduler queue contention,
+this gives a good measurement;
+a \texttt{0} is returned when there is no contention, and longer execution times do not throw off the average,
+since at maximum a \texttt{1} can be returned.
+
+The \texttt{squip} function is run 100 times per timeslice, summing up the return values of each iteration.
+At the end of the timeslice, this sum is divided by 100, resulting in an average execution time
+(in counting thread ticks) per execution.
+If the average execution time is above the delay threshold (see Section~\ref{subsec:delaythreshold}), a \texttt{1} is registered, else a \texttt{0}.
+% TODO elaborate further
 
 \section{Optimisation}
 JavaSQUIP is intended to show SQUIP's potential as an attack in a browser setting.
 Because of this, we aimed to make it as fast and stable as possible.
 
 \subsection{Delay threshold}
+\label{subsec:delaythreshold}
 The simplest parameter in SQUIP is the delay threshold.
 It determines whether the summed up delay of a timeslice is registered as a \texttt{0} or a \texttt{1}.
 If the threshold is too high or too low, results are skewed towards registering a \texttt{0} or a \texttt{1} respectively.
