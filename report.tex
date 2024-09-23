@@ -127,7 +127,7 @@ Our covert channel can provide communication across separate browser instances a
 which is faster than any current covert channel of this type.
 At this speed, we were able to achieve a transmission accuracy of $99.2\%$ and $99.3\%$ on Zen 3 and Zen 4 respectively.
 
-Modern CPUs are becoming ever more complex, and with this complexity come more possibilites for side-channel attacks.
+Modern CPUs are becoming ever more complex, and with this complexity come more possibilites for side channel attacks.
 JavaSQUIP makes it clear that the security measures of current browsers have not yet adapted to protect against these kinds of attacks.
 Our findings suggest that making these attacks impossible may not even be feasible because the drawbacks in performance and features would be too large.
 \paragraph{Keywords:}
@@ -184,7 +184,7 @@ Section~\ref{ch:conclusion} concludes by comparing JavaSQUIP's performance to si
 
 
 %--- BACKGROUND ----------------------------------------------------------------
-
+\pagebreak
 \chapter{Background}
 \label{ch:background}
 
@@ -260,7 +260,7 @@ with relatively little additional architecture needed.
 The two threads that are being executed on the same core are called \textit{co-located}.
 Usually, these threads should be unaffected by each other; no data is exchanged between two co-located threads.
 However, the sharing of common architecture, particularly the execution units,
-makes possible several different side-channels -- most of them timing attacks.
+makes possible several different side channels -- most of them timing attacks.
 A selection of these will be explained in the following chapter.
 
 \section{Exploits}
@@ -428,19 +428,21 @@ function test(a) {
 \end{lstlisting}
 
 %--- IMPLEMENTATION ----------------------------------------------------------------
+\pagebreak
 \chapter{Implementing JavaSQUIP}
 \label{ch:implementation}
 As described in Section~\ref{sec:browsersecurity}, there are some challenges to overcome when implementing a timing attack in a browser.
 This chapter explains how we worked around these challenges to implement the JavaSQUIP covert channel.
 
 \section{General architecture}
+\label{sec:general-architecture}
 We built a showcase for JavaSQUIP consisting of two web pages: one receiver and one sender.
 The aim was to build a showcase that, while showing the capabilities of the covert channel,
 should reflect as realistic a scenario as possible to also prove the feasibility of a side channel attack.
 The difference between a side channel and a covert channel is that a side channel attack involves a (non-cooperating) victim and
 an attacker, while covert channels have a cooperating pair of sender and receiver.
 
-The sender in the showcase corresponds to the victim in a side-channel scenario.
+The sender in the showcase corresponds to the victim in a side channel scenario.
 Since a victim does not cooperate in an attack, the sender was kept as simple as possible.
 It consists of one thread, sending one bit per timeslice (see \ref{sec:accurate-timing}) via issuing \texttt{Math.imul()} instructions or not.
 
@@ -632,13 +634,19 @@ Since we can assume that a difference in \texttt{start\_time} and \texttt{end\_t
 this gives a good measurement;
 a \texttt{0} is returned when there is no contention, and longer execution times do not throw off the average,
 since at maximum a \texttt{1} can be returned.
+We also tried returning the actual difference of the counting thread values, i.e. returning the actual execution time.
+It mostly worked as well as the final version, but some measurements were thrown off by longer delays in execution,
+which threw off the average execution time.
 
 The \texttt{squip} function is run 100 times per timeslice, summing up the return values of each iteration.
 At the end of the timeslice, this sum is divided by 100, resulting in an average execution time
 (in counting thread ticks) per execution.
 If the average execution time is above the delay threshold (see Section~\ref{sec:delaythreshold}), a \texttt{1} is registered, else a \texttt{0}.
+Figure~\ref{fig:conrentioncoalesced} shows that scheduler queue contention usually affects around $30-50\%$
+of the tries in a timeslice.
 
 %--- OPTIMISATION --------------------------------------------------------------
+\pagebreak
 \chapter{Optimisation}
 \label{chap:optimisation}
 JavaSQUIP is intended to show SQUIP's potential as an attack in a browser setting.
@@ -646,6 +654,7 @@ Because of this, we aimed to make it as fast and stable as possible.
 
 \section{Delay threshold}
 \label{sec:delaythreshold}
+% Todo histogram for delays
 The simplest parameter in SQUIP is the delay threshold.
 It determines whether the summed up delay of a timeslice is registered as a \texttt{0} or a \texttt{1}.
 If the threshold is too high or too low, results are skewed towards registering a \texttt{0} or a \texttt{1} respectively.
@@ -718,6 +727,7 @@ Receiver 5 -- which is co-located with the sender -- receives a clean signal of 
 Meanwhile, all the remaining receivers -- which are co-located either with each other or with the counting thread -- show very little contention.
 
 %--- EVALUATING JAVASQUIP --------------------------------------------------------------
+\pagebreak
 \chapter{Evaluating JavaSQUIP}
 \label{ch:evaluation}
 
@@ -789,12 +799,136 @@ The result is more relocation of threads (the sending thread is first co-located
 \end{figure}
 
 %--- COMPARISON ----------------------------------------------------------------
-\chapter{Comparison to other browser side channesl}
-\label{ch:conclusion}
-TODOTODOTODOTODOTODOTODOTO
-% todo
+\pagebreak
+\chapter{Comparison to other browser covert channels}
+\label{ch:comparison}
+We have shown that JavaSQUIP is a fast and robust cross-instance covert channel for modern browsers.
+To further illustrate the power of JavaSQUIP,
+we will now compare its performance to similar modern browser-based covert channels.
+For a fair comparison, they need to exhibit data transfer between browser instances,
+with all the current security mitigations in place (see Section~\ref{sec:browsersecurity}).
+The selected covert channels are the following:
+
+\begin{itemize}
+    \item \textit{Event Loops}~\cite{vila2017loophole}
+    \item \textit{Hardware Interrupts}~\cite{lipp2017practical}
+    \item \textit{Port Contention}~\cite{Rokicki2022webport}
+\end{itemize}
+
+As browser-based timing covert channels, they share a few common traits.
+All of them need a way to create contention and a way to measure it.
+The common solution is with a sender that either idles or performs an action,
+while the receiver continually monitors the execution time of a loop that is sensitive to this action.
+
+\section{Event Loops}
+The \textit{Loophole} Timing Attack~\cite{vila2017loophole} uses shared event loops to get timing information.
+An Event loop is a piece of code that continually checks for an event condition
+and starts registered event handlers if the event has occurred.
+An example would be an event loop that checked for a \textit{Space} key press,
+that starts an event handler to start a video on the website.
+
+The version of the covert channel attack we are interested in relies on two pages sharing the same \textit{renderer process}.
+The renderer process takes care of the parsing, execution, and rendering of the JavaScript sandbox.
+Consequently, pages in the same renderer process also share resources more closely.
+This is used to get access to shared event loops with more accurate timing information.
+
+The following ways of sharing a renderer process have been found:
+
+\begin{itemize}
+    \item embedding in an Iframe
+    \item creation of the new page by the renderer, e.g. through a link-click, or scripted redirect
+    \item reuse of renderers by Chrome for reuse optimisation
+\end{itemize}
+
+Having one of these is possible, though it does limit the applicability of this covert channel.
+The writers of the paper also present a version of the covert channel that works without a shared renderer process,
+at the cost of a significant decrease in transmission rate.
+
+Vila et al. propose a covert channel where the receiver continually checks the delay of an event handler
+that is triggered by a shared event loop.
+With a shared renderer process, they achieve a transmission speed of \textbf{200 bits/s}.
+Their solution without a shared renderer process runs at a transmission speed of only \textbf{5 bits/s}.
+
+\section{Hardware Interrupts}
+In their paper on \textit{Practical Keystroke Timing Attacks in Sandboxed JavaScript}~\cite{lipp2017practical},
+Lipp et al. explore a side channel based on hardware interrupts.
+To get information about a hardware interrupt being triggered,
+a script continually requests and logs the time increase of \texttt{performance.now()}~\cite{performancenow}.
+If this script is preempted by a hardware interrupt (e.g. for a keystroke),
+the delta to the last measured timestamp is significantly higher.
+This allows the attacker to infer that a hardware interrupt was triggered.
+
+To convert this side channel into a covert channel,
+the researchers needed a hardware interrupt that the sending web page could trigger.
+They found that issuing an \texttt{XMLHttpRequest} to an invalid site would cause an I/O interrupt.
+The sender would now issue these requests to send a \texttt{1} and remain idle to send a \texttt{0}.
+The receiver measures the bits the same way as described above --
+by continually looking up the value of \texttt{performance.now()}.
+
+This hardware interrupt-based covert channel has no notable limitations:
+It works in a cross-browser setting on a wide range of devices and processors.
+With time slices of 40ms length, the resulting transmission speed is \textbf{25 bits/s}.
+
+\section{Port Contention}
+The principle of port contention is the most similar to JavaSQUIP's scheduler queue contention.
+The receiver runs a loop of issuing an instruction on a particular port and measures its execution time.
+Whenever the sender issues an instruction on the same port, the receiver's instructions on that port take longer,
+thus delaying the measurement loop.
+
+In \textit{Port Contention Goes Portable}~\cite{Rokicki2022webport},
+Rokicki et al. showcase a feasible application of port contention in a browser-based covert channel.
+As opposed to the 1-sender multi-receiver approach of JavaSQUIP (see Section~\ref{sec:general-architecture} and Section~\ref{sec:co-location}),
+their solution features 1 receiver and multiple senders.
+The measurement loop of the receiver was implemented in \textit{WebAssembly} to easily issue a particular instruction.
+Since the single receiver is sandboxed in JavaScript, it can neither bind to a physical core, nor know which core it is on.
+Consequently, the sender creates as many threads as there are cores on the machine.
+The sender was implemented as a native program running unprivileged code.
+This still gave the researchers the opportunity to bind each thread to a different core,
+ensuring that one of them would be co-located with the receiver.
+
+Rokicki et al. discuss the possibility of altering their covert channel to be fully within two browser instances.
+They propose a similar solution to the problem of co-location as the one we have implemented for JavaSQUIP .
+On this basis, they believably argue that this fully web-based attack would have the same transaction speed as the version
+with a native sender at \textbf{200 bits/s}.
+
+\section{Feasibility of JavaSQUIP}
+\begin{figure}
+\centering
+\includegraphics[width=0.8\textwidth]{figures/speedcomparison}
+
+\caption{A comparison of transmission speeds between browser-based covert channels.}
+\label{fig:speedcomparison}
+\end{figure}
+
+\paragraph{Affected CPUs.}
+JavaSQUIP exploits a vulnerability in the split-scheduler design of AMD's Zen~2, Zen~3 and Zen~4 architectures.
+This means that JavaSQUIP only works on clients running on a CPU with one of these architectures.
+This limits the attack surface significantly, though the number of affected computers is still significant.
+As of Q3 of 2024, AMD holds a market share of around $33\%$ in CPUs.
+Most of these CPUs run under the Zen~2, Zen~3 and Zen~4 architecture,
+meaning that large portion of current PCs is susceptible to this attack.
+
+\paragraph{Website prerequisites.}
+Some of the above-mentioned covert channels need a particular environment in the browser to mount the attack.
+The \textit{Loophole} covert channel needs a shared renderer process.
+While the port contention approach can theoretically work without a native sender,
+the receiver still requires \textit{WebAssembly} support to work.
+
+JavaSQUIP on the other hand has none of these limitations.
+The covert channel can be established on any two browser instances where normal JavaScript can be run.
+Other than the \texttt{Date.now()}~\cite{datenow} and \texttt{SharedArrayBuffer}~\cite{sharedarraybuffer},
+no higher-level APIs are needed.
+As an example, even two malicious adverts on different browser instances could conceivably communicate with each other
+with JavaSQUIP .
+
+\paragraph{Speed.}
+JavaSQUIP transmits data at a speed that is currently unmatched by any covert channel in a browser with up-to-date security settings.
+At \textbf{1000 bits/s}, JavaSQUIP surpasses all of the covert channels mentioned in this chapter at least by a factor of 5.
+This is enough bandwidth to support a live transmission of all user inputs, or to transmit a short audio recording within minutes.
+
 
 %--- CONCLUSION ----------------------------------------------------------------
+\pagebreak
 \chapter{Conclusion}
 \label{ch:conclusion}
 In this thesis, we ported the SQUIP~\cite{squip} attack to a JavaScript context, thus creating the JavaSQUIP covert channel.
