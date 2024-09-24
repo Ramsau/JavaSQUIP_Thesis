@@ -95,7 +95,7 @@
 \thesistitle{JavaSQUIP\\An application of a scheduler queue-based covert channel to JavaScript}
 
 % Date of completion:
-\thesisdate{Month Year}
+\thesisdate{October 2024}
 
 % Supervisor:
 %\supervisortitle{Supervisors}
@@ -177,10 +177,11 @@ We develop a framework for transmitting data between separate instances of a bro
 \paragraph{Outline.}
 In Section~\ref{ch:background}, we provide relevant background information on pipelines, schedulers and scheduler queue contention.
 We also observe several challenges that we will have to overcome when implementing a timing attack in a browser.
-Section~\ref{ch:implementation} shows how we dealt with these challenges and how we optimised JavaSQUIP for speed and reliability.
+Section~\ref{ch:implementation} shows how we dealt with these challenges.
+Section~\ref{ch:optimisation} continues by explaining how we optimised JavaSQUIP for speed and reliability.
 We go into more detail on the mode and results of our evaluation of JavaSQUIP in Section~\ref{ch:evaluation}.
-Section~\ref{ch:conclusion} concludes by comparing JavaSQUIP's performance to similar attacks and outlining potential use cases.
-%TODO: reorganise
+In Section~\ref{ch:comparison}, we present comparable covert channels and compare them to JavaSQUIP.
+Section~\ref{ch:conclusion} outlining potential use cases and discussing the implications of the attack.
 
 
 %--- BACKGROUND ----------------------------------------------------------------
@@ -280,6 +281,7 @@ In the second step, the branch is called again, but with the condition set to \t
 Since the branch prediction unit was trained to expect condition \textit{A},
 the CPU can be tricked into executing an inaccessible path.
 Under the right circumstances, this can be used to leak data from a co-located process.
+% todo explain more
 
 \paragraph{Port Contention.}
 SMoTherSpectre~\cite{Bhattacharyya2019} and PortSmash~\cite{Aldaya2019port} exploit port contention.
@@ -377,38 +379,15 @@ using the JavaScript explorer on godbolt.org~\cite{godbolt}.
 The following function:
 \begin{lstlisting}[language=JavaScript]
 function test(a) {
-    a = Math.sqrt(a);
-    a = Math.sqrt(a);
-    a = Math.sqrt(a);
-    a = Math.sqrt(a);
-    a = Math.sqrt(a);
-    return a;
+a = Math.imul(a, a);
+a = Math.imul(a, a);
+a = Math.imul(a, a);
+a = Math.imul(a, a);
+a = Math.imul(a, a);
+return a;
 }
 \end{lstlisting}
 contained the following instructions when compiled:
-\begin{lstlisting}
-0x62a1e00040aa    6a  c5fb104103           vmovsd xmm0,[rcx+0x3]
-0x62a1e00040af    6f  c5fb51c0             vsqrtsd xmm0,xmm0,xmm0
-0x62a1e00040b3    73  c5fb51c0             vsqrtsd xmm0,xmm0,xmm0
-0x62a1e00040b7    77  c5fb51c0             vsqrtsd xmm0,xmm0,xmm0
-0x62a1e00040bb    7b  c5fb51c0             vsqrtsd xmm0,xmm0,xmm0
-0x62a1e00040bf    7f  c5fb51c0             vsqrtsd xmm0,xmm0,xmm0
-0x62a1e00040c3    83  c5fb2cc8             vcvttsd2si rcx,xmm0
-0x62a1e00040c7    87  c5832ac9             vcvtlsi2sd xmm1,xmm15,rcx
-0x62a1e00040cb    8b  c5f92ec8             vucomisd xmm1,xmm0
-\end{lstlisting}
-
-Similarly, \texttt{Math.sqrt()}~\cite{mathsqrt} translates to the \texttt{sqrt} instruction:
-\begin{lstlisting}[language=JavaScript]
-function test(a) {
-    a = Math.imul(a, a);
-    a = Math.imul(a, a);
-    a = Math.imul(a, a);
-    a = Math.imul(a, a);
-    a = Math.imul(a, a);
-    return a;
-}
-\end{lstlisting}
 \begin{lstlisting}
 0x6469d68040b8    78  0f80ba000000         jo 0x6469d6804178  <+0x138>
 0x6469d68040be    7e  8bc9                 movl rcx,rcx
@@ -427,6 +406,30 @@ function test(a) {
 0x6469d68040de    9e  0f8046000000         jo 0x6469d680412a  <+0xea>
 \end{lstlisting}
 
+\pagebreak
+Similarly, \texttt{Math.sqrt()}~\cite{mathsqrt} translates to the \texttt{sqrt} instruction:
+\begin{lstlisting}[language=JavaScript]
+function test(a) {
+a = Math.sqrt(a);
+a = Math.sqrt(a);
+a = Math.sqrt(a);
+a = Math.sqrt(a);
+a = Math.sqrt(a);
+return a;
+}
+\end{lstlisting}
+\begin{lstlisting}
+0x62a1e00040aa    6a  c5fb104103           vmovsd xmm0,[rcx+0x3]
+0x62a1e00040af    6f  c5fb51c0             vsqrtsd xmm0,xmm0,xmm0
+0x62a1e00040b3    73  c5fb51c0             vsqrtsd xmm0,xmm0,xmm0
+0x62a1e00040b7    77  c5fb51c0             vsqrtsd xmm0,xmm0,xmm0
+0x62a1e00040bb    7b  c5fb51c0             vsqrtsd xmm0,xmm0,xmm0
+0x62a1e00040bf    7f  c5fb51c0             vsqrtsd xmm0,xmm0,xmm0
+0x62a1e00040c3    83  c5fb2cc8             vcvttsd2si rcx,xmm0
+0x62a1e00040c7    87  c5832ac9             vcvtlsi2sd xmm1,xmm15,rcx
+0x62a1e00040cb    8b  c5f92ec8             vucomisd xmm1,xmm0
+\end{lstlisting}
+
 %--- IMPLEMENTATION ----------------------------------------------------------------
 \pagebreak
 \chapter{Implementing JavaSQUIP}
@@ -439,7 +442,7 @@ This chapter explains how we worked around these challenges to implement the Jav
 We built a showcase for JavaSQUIP consisting of two web pages: one receiver and one sender.
 The aim was to build a showcase that, while showing the capabilities of the covert channel,
 should reflect as realistic a scenario as possible to also prove the feasibility of a side channel attack.
-The difference between a side channel and a covert channel is that a side channel attack involves a (non-cooperating) victim and
+The difference between a conventional side channel attack and a covert channel is that a side channel attack involves a (non-cooperating) victim and
 an attacker, while covert channels have a cooperating pair of sender and receiver.
 
 The sender in the showcase corresponds to the victim in a side channel scenario.
@@ -481,7 +484,21 @@ The paper on \textit{Fantastic Timers}~\cite{Schwarz2017Timers} does an excellen
 
 \section{Co-locating with the sender}
 \label{sec:co-location}
-For co-locating the receiver with the sender, the receiver creates as many receiving workers as the number of virtual cores in the machine, minus two:
+
+\begin{figure}
+\centering
+\includegraphics[width=\textwidth]{figures/colocation}
+
+\caption{One possible co-location configuration. The counting thread is co-located with Receiver 1, the Sender is co-located with Receiver 9.}
+\label{fig:colocation}
+
+\end{figure}
+
+JavaScript does not provide the functionality of binding to a particular core,
+the receiver tries to force co-location by crowding the CPU.
+The receiver has one thread running on each virtual core,
+leaving just one virtual core open for the sender's thread to occupy.
+To do this the receiver creates as many receiving workers as the number of virtual cores in the machine, minus two:
 one for the counting thread (see \ref{sec:accurate-timing}), and one for the sending thread.
 In our experiments, we used an \textit{AMD Ryzen 7 5800X} as representative for Zen~3 and an \textit{AMD Ryzen 7 7700X} as representative for Zen~4.
 Both are 8-core CPUs, so the experiments were run with $8 \times 2 - 2 = 14$ receiver workers.
@@ -491,7 +508,8 @@ To receive the message, one of the worker threads needs to be co-located with th
 Assuming a uniform distribution for the threads, we can calculate the theoretical co-location probability.
 The only way that the sender is not co-located with a receiver is that the sender is co-located with the counting thread,
 which is a $\frac{1}{15}$ chance.
-Thus, the theoretical co-location probability is $\frac{14}{15} \approx 93.3\%$
+Thus, the theoretical co-location probability is $\frac{14}{15} \approx 93.3\%$.
+Figure~\ref{fig:colocation} illustrates one possible configuration of threads on the 16 virtual cores.
 
 To figure out which receiver is the one co-located with the sender,
 we need to take advantage of some characteristic of the transmission.
@@ -611,6 +629,7 @@ For example, \texttt{1.4|0 + 4.5|0} will be interpreted as an integer addition a
 Similarly, using a variable with a \texttt{+} in front -- as in line 2 -- will force a reinterpretation as a floating-point number.
 We use \texttt{Atomics.load()}~\cite{atomicsload} to get the current value of the counting thread.
 It is an atomic operation, so thread safety and correctness of the value is ensured.
+% todo read from here
 
 The above code snippet shows how the receiver issues 10 \texttt{sqrt} and 20 \texttt{imul} instructions,
 retreiving the counter value before and after (see lines \texttt{7} and \texttt{23}).
@@ -648,7 +667,7 @@ of the tries in a timeslice.
 %--- OPTIMISATION --------------------------------------------------------------
 \pagebreak
 \chapter{Optimisation}
-\label{chap:optimisation}
+\label{ch:optimisation}
 JavaSQUIP is intended to show SQUIP's potential as an attack in a browser setting.
 Because of this, we aimed to make it as fast and stable as possible.
 
@@ -926,6 +945,10 @@ JavaSQUIP transmits data at a speed that is currently unmatched by any covert ch
 At \textbf{1000 bits/s}, JavaSQUIP surpasses all of the covert channels mentioned in this chapter at least by a factor of 5.
 This is enough bandwidth to support a live transmission of all user inputs, or to transmit a short audio recording within minutes.
 
+% todo why browser mitigations are hard
+% - timing functions
+% - multithreading
+% - low-level operations in JavaScript
 
 %--- CONCLUSION ----------------------------------------------------------------
 \pagebreak
