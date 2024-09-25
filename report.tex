@@ -763,7 +763,6 @@ Figure~\ref{fig:contentiontest} demonstrates these measures working:
 Receiver 5 -- which is co-located with the sender -- receives a clean signal of alternating \texttt{1}'s and \texttt{0}'s.
 Meanwhile, all the remaining receivers -- which are co-located either with each other or with the counting thread -- show very little contention.
 
-% todo keep reading here
 
 %--- EVALUATING JAVASQUIP --------------------------------------------------------------
 \pagebreak
@@ -771,7 +770,7 @@ Meanwhile, all the remaining receivers -- which are co-located either with each 
 \label{ch:evaluation}
 
 To evaluate and measure different parameters and settings, we set up a test scenario for JavaSQUIP .
-It consists of two web pages communicating with each other solely over JavaSQUIP .
+It consists of two web pages communicating with each other solely over the JavaSQUIP covert channel.
 
 \section {Test setup}
 \label{sec:testsetup}
@@ -785,7 +784,7 @@ The sender has only one working thread.
 The working thread is sending either a 0 (no action) or a 1 (contention with codependent \texttt{Math.imul()} calls) for each timeslice.
 With more control over the receiver, the attacker can ensure co-location from this side.
 For our tests on the \textit{AMD Ryzen 7 5800X}(Zen~3) and \textit{AMD Ryzen 7 7700X}(Zen~4), we needed 14 receiving workers.
-We go into more detail on co-location in Chapter~\ref{sec:co-location}.
+An explanation for the number of receivers needed can be found in Chapter~\ref{sec:co-location}.
 
 To distinguish a message from random noise on the CPU, the sender sends a preamble before the actual data.
 The preamble is a sequence of the numbers from 100 through 109.
@@ -810,16 +809,20 @@ so the relative overhead tends to $0\%$ as the message size increases.
 There are two aspects that affect the reliability of the covert channel:
 First, the sender being co-located with a receiver, and second, the resilience of the covert channel against noise.
 
+\paragraph{Co-location.}
 To measure the actual co-location probability, we used the preamble system as described in Section~\ref{sec:testsetup}.
 Threads are unlikely to be relocated during the 4 seconds of a transmission,
 and the preamble is likely to be recognised if co-location is given (see noise resilience further down).
 We can conclude that the rate of recognised preambles is a good measurement for the actual co-location probability.
-Further, the resilience to noise can be measured by the accuracy of a message when the preamble was recognised.
 
 In our tests, we found an average co-location probability of $88.7\%$ in a Zen~3 architecture and $96\%$ in Zen~4.
-This is consistent with the theoretical $93.3\%$ calculated in Section~\ref{sec:co-location}.
-When tested under stress with \texttt{stress --cpu 1}, we achieved an average co-location probability of $53.7\%$.
+This is consistent with the theoretical co-location probability of $93.3\%$ calculated in Section~\ref{sec:co-location}.
 
+When tested under stress with \texttt{stress --cpu 1}, we achieved an average co-location probability of $53.7\%$.
+Most likely, the sender was co-located to a receiver more often than that,
+but the corresponding receiver was not able to detect the preamble due to the noise.
+
+\paragraph{Noise.}
 For measuring noise resistance, we only looked at those transmissions where the preamble was recognised.
 This resulted in an average transmission accuracy of $99.2\%$ on Zen~3, and $99.3\%$ on Zen~4.
 With \texttt{stress --cpu 1}, we observed an accuracy of $74\%$.
@@ -864,7 +867,7 @@ The \textit{Loophole} Timing Attack~\cite{vila2017loophole} uses shared event lo
 An Event loop is a piece of code that continually checks for an event condition
 and starts registered event handlers if the event has occurred.
 An example would be an event loop that checked for a \textit{Space} key press,
-that starts an event handler to start a video on the website.
+which starts an event handler to start a video on the website.
 
 The version of the covert channel attack we are interested in relies on two pages sharing the same \textit{renderer process}.
 The renderer process takes care of the parsing, execution, and rendering of the JavaScript sandbox.
@@ -876,7 +879,7 @@ The following ways of sharing a renderer process have been found:
 \begin{itemize}
     \item embedding in an Iframe
     \item creation of the new page by the renderer, e.g. through a link-click, or scripted redirect
-    \item reuse of renderers by Chrome for reuse optimisation
+    \item reuse of renderers by Chrome for resource optimisation
 \end{itemize}
 
 Having one of these is possible, though it does limit the applicability of this covert channel.
@@ -943,9 +946,9 @@ with a native sender at \textbf{200 bits/s}.
 JavaSQUIP exploits a vulnerability in the split-scheduler design of AMD's Zen~2, Zen~3 and Zen~4 architectures.
 This means that JavaSQUIP only works on clients running on a CPU with one of these architectures.
 This limits the attack surface significantly, though the number of affected computers is still significant.
-As of Q3 of 2024, AMD holds a market share of around $33\%$ in CPUs.
+As of Q3 of 2024, AMD holds a market share of around $33\%$ in CPUs~\cite{amdmarket}.
 Most of these CPUs run under the Zen~2, Zen~3 and Zen~4 architecture,
-meaning that large portion of current PCs is susceptible to this attack.
+meaning that large portion of current computers is susceptible to this attack.
 
 \paragraph{Website prerequisites.}
 Some of the above-mentioned covert channels need a particular environment in the browser to mount the attack.
@@ -955,7 +958,7 @@ the receiver still requires \textit{WebAssembly} support to work.
 
 JavaSQUIP on the other hand has none of these limitations.
 The covert channel can be established on any two browser instances where normal JavaScript can be run.
-Other than the \texttt{Date.now()}~\cite{datenow} and \texttt{SharedArrayBuffer}~\cite{sharedarraybuffer},
+Other than \texttt{Date.now()}~\cite{datenow} and \texttt{SharedArrayBuffer}~\cite{sharedarraybuffer},
 no higher-level APIs are needed.
 As an example, even two malicious adverts on different browser instances could conceivably communicate with each other
 with JavaSQUIP .
@@ -975,7 +978,10 @@ This is enough bandwidth to support a live transmission of all user inputs, or t
 \chapter{Conclusion}
 \label{ch:conclusion}
 In this thesis, we ported the SQUIP~\cite{squip} attack to a JavaScript context, thus creating the JavaSQUIP covert channel.
-JavaSQUIP has achieved a transmission rate of 1000 bits/s, proving an advantage in performance over attacking single-scheduler based architectures~\cite{Rokicki2022webport}.
+JavaSQUIP has achieved a transmission rate of 1000 bits/s, proving an advantage in performance over
+all other current JavaScript-based covert channels~\cite{vila2017loophole, lipp2017practical},
+in particular over attacking single-scheduler based architectures~\cite{Rokicki2022webport}.
+
 Additionally, we proved a co-location rate of $88.7\%$/$96\%$ with a transmission accuracy of $99.2\%$/$99.3\%$ (Zen~3/Zen~4).
 This shows that architectures with multiple scheduler queues present a bigger attack surface than their single-scheduler counterparts.
 
@@ -988,6 +994,7 @@ Though security updates in modern browsers slow down and hinder timing attacks, 
 JavaSQUIP mostly uses JavaScript features that have already been restricted to improve security as much as feasible;
 mitigating microarchitectural attacks in a browser setting proves to be increasingly hard as CPUs grow more and more complex.
 
+%todo write a bit about mitigating the risk
 
 %--- BIBLIOGRAPHY --------------------------------------------------------------
 \pagebreak
