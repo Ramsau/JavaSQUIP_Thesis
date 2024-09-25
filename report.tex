@@ -628,8 +628,7 @@ It forces the interpretation of the given constant or variable as an integer, th
 For example, \texttt{1.4|0 + 4.5|0} will be interpreted as an integer addition and evaluate to \texttt{5}.
 Similarly, using a variable with a \texttt{+} in front -- as in line 2 -- will force a reinterpretation as a floating-point number.
 We use \texttt{Atomics.load()}~\cite{atomicsload} to get the current value of the counting thread.
-It is an atomic operation, so thread safety and correctness of the value is ensured.
-% todo read from here
+It is an atomic operation, so thread safety and correctness of the value are ensured.
 
 The above code snippet shows how the receiver issues 10 \texttt{sqrt} and 20 \texttt{imul} instructions,
 retreiving the counter value before and after (see lines \texttt{7} and \texttt{23}).
@@ -655,25 +654,36 @@ a \texttt{0} is returned when there is no contention, and longer execution times
 since at maximum a \texttt{1} can be returned.
 We also tried returning the actual difference of the counting thread values, i.e. returning the actual execution time.
 It mostly worked as well as the final version, but some measurements were thrown off by longer delays in execution,
-which threw off the average execution time.
+which increased the average execution time unproportionally.
 
 The \texttt{squip} function is run 100 times per timeslice, summing up the return values of each iteration.
-At the end of the timeslice, this sum is divided by 100, resulting in an average execution time
-(in counting thread ticks) per execution.
-If the average execution time is above the delay threshold (see Section~\ref{sec:delaythreshold}), a \texttt{1} is registered, else a \texttt{0}.
-Figure~\ref{fig:conrentioncoalesced} shows that scheduler queue contention usually affects around $30-50\%$
-of the tries in a timeslice.
+At the end of the timeslice, this sum is divided by 100,
+resulting in the relative likelihood of a queue stall between time measurements, or \textit{stall likelihood}.
+If the stall likelihood is above the threshold (see Section~\ref{sec:delaythreshold}), a \texttt{1} is registered, else a \texttt{0}.
+Figure~\ref{fig:contentioncoalesced} shows that scheduler queue contention usually affects around $30-50\%$ of the tries in a timeslice.
+Since this metric is closely related to the execution time of the measurement, the two terms are used interchangeably in the rest of this thesis.
+
 
 %--- OPTIMISATION --------------------------------------------------------------
 \pagebreak
 \chapter{Optimisation}
 \label{ch:optimisation}
+\begin{figure}
+\centering
+\includegraphics[width=0.9\textwidth]{figures/contentionhistogram}
+
+\caption{Distribution of stall likelihood per timeslice with and without scheduler queue contention by the sender}
+\label{fig:contentionhistogram}
+\end{figure}
+
 JavaSQUIP is intended to show SQUIP's potential as an attack in a browser setting.
 Because of this, we aimed to make it as fast and stable as possible.
+The transmission speed is limited by the environment, as the time slices cannot be smaller than 1ms.
+The remaining settings and features were adjusted so the transmission is as accurate as possible at the speed of 1000 bits/s.
 
 \section{Delay threshold}
 \label{sec:delaythreshold}
-% Todo histogram for delays
+
 The simplest parameter in SQUIP is the delay threshold.
 It determines whether the summed up delay of a timeslice is registered as a \texttt{0} or a \texttt{1}.
 If the threshold is too high or too low, results are skewed towards registering a \texttt{0} or a \texttt{1} respectively.
@@ -683,8 +693,10 @@ All of the bits that were wrongly registered as \texttt{1} or wrongly \texttt{0}
 Then the delay threshold was adjusted until faulty \texttt{1}'s and faulty \texttt{0}'s were approximately equally frequent,
 meaning that no skew toward high or low bits is present and the delay threshold is set optimally.
 
-Figure~\ref{fig:contentiontest} shows the contention of every reciever thread during such a test.
-It shows that a threshold value of $0.2$ would be optimal, giving the best margin for \texttt{0}- and \texttt{1}-transmissions.
+Figure~\ref{fig:contentionhistogram} shows the distribution of execution times per timeslice with and without scheduler queue contention.
+Timeslices without scheduler queue contention show very short execution times, except for a small number of outliers.
+Execution times for timeslices with scheduler queue contention vary more, though they are clearly separable from those without contention.
+A threshold value of $0.21$ would be optimal, giving the best margin for \texttt{0}- and \texttt{1}-transmissions.
 
 
 \section{Number of instructions for a queue stall}
@@ -707,12 +719,19 @@ Figure~\ref{fig:contentioncoalesced} illustrates that this system is quite robus
 \label{sec:reducecontention}
 The receiver detects a queue stall by measuring whether two operations were reordered to be right after one another,
 or whether the scheduler queue was stalled between the two operations by contention.
+To detect a stall, the execution time for \texttt{imul} instruction calls were measured.
 See Section~\ref{sec:detect-sqc} for a detailed explanation of the stall detection.
 
-To get a more stable result, several successive \texttt{imul} instructions were used.
-The goal here was to get reliable results, while minimising the contention caused by the receivers themselves.
+To improve the signal-to-noise ratio, the receivers should create as little contention as possible themselves.
 This is helpful in the transmission, as it reduces the contention for two co-located receivers,
 maximizing the contrast to the receiver that is co-located with the sender (see \ref{sec:co-location})
+Three optimisations were done in the receiver worker: adjusting the \textit{number of stall instructions},
+using \textit{buffer instructions}, and a \textit{delay loop}.
+
+\paragraph{Number of stall instructions.}
+To get a more stable result, several successive \texttt{imul} instructions were used.
+On the other hand, too many instructions would create contention themselves, so fewer instructions would be better.
+A detection test was set up to determine the minimum amount of instructions to be able to detect contention by the sender.
 
 The detection test was constructed similarly to the bleed-over test:
 alternating \texttt{1}s and \texttt{0}s were received, and the delays measured.
@@ -720,15 +739,14 @@ The number of \texttt{imul} instructions in the receiver worker was reduced unti
 resulting in a lower bound for the number of \texttt{imul} instructions in the receiver worker.
 For Zen~4, the optimum number of \texttt{imul} instructions was found to be $20$.
 
-In addition to tuning the number of \texttt{imul} instructions, two more optimisations were done in the receiver worker:
-\textit{buffer instructions} and a \textit{delay loop}.
-
+\paragraph{Buffer instructions.}
 In the measurement function, 10 \texttt{sqrt} instructions serve as a buffer to delay the \texttt{imul} instrucions:
 they delay the execution, while not creating contention on ALU1.
 This means that the effect of a stalled queue is more pronounced, because the \texttt{sqrt} instructions will also be stalled.
 On the other hand, they have little effect on an unstalled queue, since they operate on a different scheduler.
 The implementation can be seen in section~\ref{sec:detect-sqc}
 
+\paragraph{Delay loop.}
 A delay loop was added after each measurement to clearly separate measurements.
 To this effect, we filled the scheduler queue with other operations for a short time between measurements.
 Since no normal delay function gives a better accuracy than 1ms, a busy-waiting loop was used.
@@ -744,6 +762,8 @@ while(k < 1000|0) {
 Figure~\ref{fig:contentiontest} demonstrates these measures working:
 Receiver 5 -- which is co-located with the sender -- receives a clean signal of alternating \texttt{1}'s and \texttt{0}'s.
 Meanwhile, all the remaining receivers -- which are co-located either with each other or with the counting thread -- show very little contention.
+
+% todo keep reading here
 
 %--- EVALUATING JAVASQUIP --------------------------------------------------------------
 \pagebreak
