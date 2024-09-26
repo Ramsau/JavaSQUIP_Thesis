@@ -968,6 +968,37 @@ JavaSQUIP transmits data at a speed that is currently unmatched by any covert ch
 At \textbf{1000 bits/s}, JavaSQUIP surpasses all of the covert channels mentioned in this chapter at least by a factor of 5.
 This is enough bandwidth to support a live transmission of all user inputs, or to transmit a short audio recording within minutes.
 
+%--- CONCLUSION ----------------------------------------------------------------
+\pagebreak
+\chapter{Discussion of Countermeasures}
+\label{ch:countermeasures}
+
+The preceding chapters have proven that JavaSQUIP is a powerful covert channel.
+We want to discuss several ways to impede or prevent the usage of this vulnerability for nefarious purposes.
+First, we will discuss possibilites to alter the three features needed to implement JavaSQUIP:
+\textit{timing functions}, \textit{multithreading}, and \textit{low-level operations}.
+We finish by discussing more ways of \textit{preventing co-location} of the sender and receiver.
+
+\section{Timing functions}
+JavaSQUIP uses two timers: \texttt{Date.now()}~\cite{datenow} and a counting thread (see Section~\ref{sec:accurate-timing}).
+The counting thread is based on multithreading, which will be discussed in the next section.
+
+The resolution of \texttt{Date.now()} directly affects the available transmission speed.
+The usefulness of JavaSQUIP can be easily decreased by decreasing the time resolution.
+On the other hand, going below 1 ms-accuracy would make the feature too weak.
+Many legitimate programs need this accuracy in timing measurements,
+for example for performance assessments of a website.
+
+Thus, there is no feasible way to counteract the JavaSQUIP attack by decreasing timer accuracy.
+
+\section{Multithreading}
+Removing the support for \texttt{Web Workers}~\cite{webworkers} or a \texttt{SharedArrayBuffer}~\cite{sharedarraybuffer}
+would break JavaSQUIP .
+
+
+\section{Low-level operations in JavaScript}
+
+\section{Preventing co-location}
 % todo why browser mitigations are hard
 % - timing functions
 % - multithreading
