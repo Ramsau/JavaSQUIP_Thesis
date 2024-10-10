@@ -92,16 +92,16 @@
 \thesisauthor{Christoph Royer}
 
 % Title of your thesis:
-\thesistitle{JavaSQUIP\\An application of a scheduler queue-based covert channel to JavaScript}
+\thesistitle{JavaSQUIP\\Implementing a scheduler queue-based covert channel in JavaScript}
 
 % Date of completion:
 \thesisdate{October 2024}
 
 % Supervisor:
-%\supervisortitle{Supervisors}
-\supervisor{%
-    Advisor: Stefan Gast\\
-    Supervisor: Daniel Gruss
+\supervisortitle{}
+\supervisor{
+    \textbf{Advisor}: Stefan Gast\\
+    \textbf{Supervisor}: Daniel Gruss
     \smallskip
 
     Institute of Applied Information Processing and Communications\\
@@ -116,7 +116,7 @@
 \chapter*{\centering\Large Abstract}
 \label{ch:abstract}
 The implementation of out-of-order execution has brought a big performance benefit to current CPUs.
-But with this benefit also come security concerns, since attackers can exploit the timing variations which are bound to occur in an out-of-order pipeline.
+With this benefit also come security concerns however, since attackers can exploit the timing variations which are bound to occur in an out-of-order pipeline.
 Attacks which target only one execution unit through a separate scheduler queue -- as seen in the Apple M1 and AMD Zen 3 and Zen 4 microarchitectures -- have proven even more powerful than port contention on single-scheduler systems.
 As with any attack, porting this side channel to the web would greatly increase its reach and number of victims.
 
@@ -125,11 +125,11 @@ We look into the security measures used in common browsers to prevent timing att
 
 Our covert channel can provide communication across separate browser instances at a speed of 1000 bits/s,
 which is faster than any current covert channel of this type.
-At this speed, we were able to achieve a transmission accuracy of $99.2\%$ and $99.3\%$ on Zen 3 and Zen 4 respectively.
+At this speed, we were able to achieve a transmission accuracy of $99.2 \%$ and $99.3 \%$ on Zen 3 and Zen 4 respectively.
 
-Modern CPUs are becoming ever more complex, and with this complexity come more possibilites for side channel attacks.
+Modern CPUs are becoming ever more complex, and with this complexity come more possibilities for side channel attacks.
 JavaSQUIP makes it clear that the security measures of current browsers have not yet adapted to protect against these kinds of attacks.
-Our findings suggest that making these attacks impossible may not even be feasible because the drawbacks in performance and features would be too large.
+Our findings suggest that making these attacks impossible may not even be feasible because the drawbacks in performance and features would be too extensive.
 \paragraph{Keywords:}
 Covert channel $\cdot$
 Scheduler queue contention $\cdot$
@@ -150,8 +150,8 @@ Although this toes the line of breaking the hardware-software contract, the CPU 
 To better balance usage of its execution units, modern CPUs often also include \textit{Simultaneous Multithreading} (SMT).
 Here, one physical core is split up into two logical cores, which share physical infrastructure like the schedulers and execution units.
 
-Though out-of-order execution and SMT are designed to be transparent to the user, attacks like
-PortSmash~\cite{Aldaya2019port} and SMoTherSpectre~\cite{Bhattacharyya2019} show that the combination of the two forms a viable attack surface.
+Out-of-order execution and SMT are designed to be transparent to the user, however attacks like
+PortSmash~\cite{Aldaya2019port} and SMoTherSpectre~\cite{Bhattacharyya2019} show that combining the two technologies presents a viable attack surface.
 By measuring timing variations in out-of-order execution, an attacker can gain insight into sensitive information.
 This attack, which targets all CPUs with SMT, is called \textit{port contention}.
 %Because the instructions are reordered on the fly, the CPUs scheduler needs to distribute incoming instructions across the ports for its several specialized execution units.
@@ -159,28 +159,34 @@ If the attacker is co-located with the victim on the same core, they can measure
 In this way, the attacker can gain knowledge on the victim's execution based on whether instructions are delayed by the scheduler or not.
 
 SQUIP~\cite{squip} focuses on CPUs with multiple specialized scheduler queues to implement \textit{scheduler queue contention}.
-Because each scheduler deals with fewer execution units, the attacker can push one of the comparatively small scheduler queues close to its capacity.
+Each scheduler deals with fewer execution units, which is why the attacker can push one of the comparatively small scheduler queues close to its capacity.
 If the victim also adds to the queue, the pipeline stalls, which results in a significant increase in execution time.
-This makes SQUIP a fast and reliable covert channel on many modern CPU architectures such as the AMD Zen 3 and Zen 4.~\cite{squip}
+This makes SQUIP a fast and reliable covert channel on many modern CPU architectures such as the AMD Zen 3.~\cite{squip}
 
-Since implementations of port contention-based side channels in a browser setting already exist~\cite{Rokicki2022webport}, we ask the following research question:
+Since implementations of port contention-based side channels in a browser setting already exist~\cite{Rokicki2022webport}, we ask the following research questions:
 
 \textit{
     Can per-execution-unit scheduler queue contention be exploited in a browser setting?
     Are there significant benefits compared to single scheduler port contention-based approaches?
 }
 
-In this thesis, we present JavaSQUIP, a browser-based covert channel based on the SQUIP~\cite{squip} attack.
-We show that it is reliable and faster than approaches based on CPU architectures with a single scheduler queue.
-We develop a framework for transmitting data between separate instances of a browser at speeds of up to 1000 bit/s.
+\pagebreak
+\paragraph{Contributions.}
+In this thesis, we contribute the following:
+\begin{itemize}
+    \item We present JavaSQUIP, a browser-based covert channel based on the SQUIP~\cite{squip} attack.
+    \item We show that JavaSQUIP is reliable and faster than approaches based on CPU architectures with a single scheduler queue.
+    \item We develop a framework for transmitting data between separate instances of a browser at speeds of up to 1000 bit/s.
+    \item We argue that JavaSQUIP relies on essential features of JavaScript, meaning the threat it poses cannot be easily mitigated.
+\end{itemize}
 
 \paragraph{Outline.}
-In Section~\ref{ch:background}, we provide relevant background information on pipelines, schedulers and scheduler queue contention.
-We also observe several challenges that we will have to overcome when implementing a timing attack in a browser.
+In Section~\ref{ch:background}, we provide relevant background information on scheduler queue contention,
+resulting in several challenges that we will have to overcome when implementing JavaSQUIP.
 Section~\ref{ch:implementation} shows how we dealt with these challenges.
 Section~\ref{ch:optimisation} continues by explaining how we optimised JavaSQUIP for speed and reliability.
 We go into more detail on the mode and results of our evaluation of JavaSQUIP in Section~\ref{ch:evaluation}.
-In Section~\ref{ch:comparison}, we present comparable covert channels and compare them to JavaSQUIP .
+In Section~\ref{ch:comparison}, we present comparable covert channels and compare them to JavaSQUIP.
 We propose ways to prevent JavaSQUIP in Section~\ref{ch:countermeasures} and discuss whether they are feasible.
 We conclude with Section~\ref{ch:conclusion}, outlining potential use cases and discussing the implications of the attack.
 
@@ -209,14 +215,14 @@ where Out-Of-Order Execution is utilised.
 Before an instruction can be executed, it needs to be loaded from cache or memory.
 As branches can make loading unpredictable and loading the wrong instruction is expensive, a \textit{branch prediction unit} tries to guess which path is more likely to be loaded.
 Taking this one step further, the predicted path may also be executed before the condition for the branch has been computed.
-This is called \textit{speculative execution}\cite{AMD2020OptimizationEPYC7002}.
+This is called \textit{speculative execution}~\cite{AMD2020OptimizationEPYC7002}.
 
 % TODO: Are there attacks against the decoder too?
 \paragraph{Decode.}
-Modern CISC CPUs divide normal instructions into their parts when possible;
-these parts are called \textit{micro-ops} (\textmu ops)\cite{AMD2020OptimizationEPYC7002}.
+Modern CISC CPUs divide complex instructions into their parts when possible;
+these parts are called \textit{micro-ops} (\textmu ops)~\cite{AMD2020OptimizationEPYC7002}.
 For example, an addition with memory operands may be split up into three \textmu ops: one for loading the operands, one for the addition, and one for storing the result.
-These \textmu ops can be distributed across specialized execution units, enabling more parallelisation and load balancing, and thus an increase in performance.
+These \textmu ops can be distributed across specialized execution units, enabling more parallelization and load balancing, and thus an increase in performance.
 
 \paragraph{Schedule/Execute.}
 Once created, the \textmu ops are queued to be executed as soon as their dependencies are met -- sometimes out of the order of their arrival.
@@ -252,24 +258,22 @@ the cores of a modern CPU are subdivided into multiple specialized execution uni
 If only one thread would be executed on such a core,
 most of these execution units would stay unused while an instruction is executed.
 
-With \textit{Simultaneous Multithreading} (SMT), one physical core is split into two logical cores~\cite{tullsen1995simultaneous}.
+With \textit{Simultaneous Multithreading} (SMT), one physical core is split into multiple logical cores
+-- most commonly, two logical cores per physical core are implemented~\cite{tullsen1995simultaneous}.
 This means that one core executes two threads simultaneously, distributing the workload across its execution units more effectively.
-This provides a potential speed-up of up to $100\%$
-(realistic tests show a performance gain of about $25\%$~\cite{Phoronix2018HT, Cutress2020SMT})
+Tests show that this provides an average performance gain of about $25 \%$~\cite{Phoronix2018HT, Cutress2020SMT}
 with relatively little additional architecture needed.
 
 The two threads that are being executed on the same core are called \textit{co-located}.
 Usually, these threads should be unaffected by each other; no data is exchanged between two co-located threads.
-However, the sharing of common architecture, particularly the execution units,
-makes possible several different side channels -- most of them timing attacks.
-A selection of these will be explained in the following chapter.
+However, the sharing of common architecture, particularly the execution units, enables several different side channels.
+All of them are \textit{timing attacks}, meaning that they gain information by measuring execution times of a piece of code.
+A selection of these attacks will be explained in the following chapter.
 
-\section{Exploits}
+\section{Prior attacks on the CPU pipeline }
 \label{sec:exploits}
 Many of the stages of an instruction's life cycle are exploitable;
 in the following, we will list some of the exploits that have already been found.
-Each of the attacks outlined in this chapter relies on the attacker being co-located with the victim,
-i.e. being executed on the same physical core.
 
 \paragraph{Speculative Execution.}
 Executing a path before the condition for the branch is known --
@@ -283,12 +287,12 @@ the CPU can be tricked into executing an inaccessible path.
 Under the right circumstances, this can be used to leak data from a co-located process.
 
 \paragraph{Port Contention.}
-SMoTherSpectre~\cite{Bhattacharyya2019} and PortSmash~\cite{Aldaya2019port} exploit port contention.
+PortSmash~\cite{Aldaya2019port} and SMoTherSpectre~\cite{Bhattacharyya2019} exploit port contention.
 They use the fact that only one of the two threads in an SMT-enabled core can use an execution unit in a single cycle.
 The attacker can thus find out whether the victim is using a port by measuring the execution time of an instruction on the same port.
 Delayed execution gives away the fact that the victim is currently using that port.
 Port contention works independently of the type of scheduler queue used.
-It affects only one execution unit, and thus creates stalls and measures execution time with the same instruction.
+It affects only one execution unit, and thus creates contention and measures execution time with the same instruction.
 
 \paragraph{Scheduler Queue Contention.}
 SQUIP~\cite{squip} on the other hand exploits scheduler queue contention.
@@ -507,7 +511,7 @@ To receive the message, one of the worker threads needs to be co-located with th
 Assuming a uniform distribution for the threads, we can calculate the theoretical co-location probability.
 The only way that the sender is not co-located with a receiver is that the sender is co-located with the counting thread,
 which is a $\frac{1}{15}$ chance.
-Thus, the theoretical co-location probability is $\frac{14}{15} \approx 93.3\%$.
+Thus, the theoretical co-location probability is $\frac{14}{15} \approx 93.3 \%$.
 Figure~\ref{fig:colocation} illustrates one possible configuration of threads on the 16 virtual cores.
 
 To figure out which receiver is the one co-located with the sender,
@@ -659,7 +663,7 @@ The \texttt{squip} function is run 100 times per timeslice, summing up the retur
 At the end of the timeslice, this sum is divided by 100,
 resulting in the relative likelihood of a queue stall between time measurements, or \textit{stall likelihood}.
 If the stall likelihood is above the threshold (see Section~\ref{sec:delaythreshold}), a \texttt{1} is registered, else a \texttt{0}.
-Figure~\ref{fig:contentioncoalesced} shows that scheduler queue contention usually affects around $30-50\%$ of the tries in a timeslice.
+Figure~\ref{fig:contentioncoalesced} shows that scheduler queue contention usually affects around $30-50 \%$ of the tries in a timeslice.
 Since this metric is closely related to the execution time of the measurement, the two terms are used interchangeably in the rest of this thesis.
 
 
@@ -767,7 +771,7 @@ Meanwhile, all the remaining receivers -- which are co-located either with each 
 \chapter{Evaluating JavaSQUIP}
 \label{ch:evaluation}
 
-To evaluate and measure different parameters and settings, we set up a test scenario for JavaSQUIP .
+To evaluate and measure different parameters and settings, we set up a test scenario for JavaSQUIP.
 It consists of two web pages communicating with each other solely over the JavaSQUIP covert channel.
 
 \section {Test setup}
@@ -801,7 +805,7 @@ our best achievable speed was 1000bits/s.
 
 There is, however, still some overhead for the preamble (see Section~\ref{sec:testsetup}).
 It is a fixed size of 10 bytes regardless of the message,
-so the relative overhead tends to $0\%$ as the message size increases.
+so the relative overhead tends to $0 \%$ as the message size increases.
 
 \section{Reliability}
 There are two aspects that affect the reliability of the covert channel:
@@ -813,17 +817,17 @@ Threads are unlikely to be relocated during the 4 seconds of a transmission,
 and the preamble is likely to be recognised if co-location is given (see noise resilience further down).
 We can conclude that the rate of recognised preambles is a good measurement for the actual co-location probability.
 
-In our tests, we found an average co-location probability of $88.7\%$ in a Zen~3 architecture and $96\%$ in Zen~4.
-This is consistent with the theoretical co-location probability of $93.3\%$ calculated in Section~\ref{sec:co-location}.
+In our tests, we found an average co-location probability of $88.7 \%$ in a Zen~3 architecture and $96 \%$ in Zen~4.
+This is consistent with the theoretical co-location probability of $93.3 \%$ calculated in Section~\ref{sec:co-location}.
 
-When tested under stress with \texttt{stress --cpu 1}, we achieved an average co-location probability of $53.7\%$.
+When tested under stress with \texttt{stress --cpu 1}, we achieved an average co-location probability of $53.7 \%$.
 Most likely, the sender was co-located to a receiver more often than that,
 but the corresponding receiver was not able to detect the preamble due to the noise.
 
 \paragraph{Noise.}
 For measuring noise resistance, we only looked at those transmissions where the preamble was recognised.
-This resulted in an average transmission accuracy of $99.2\%$ on Zen~3, and $99.3\%$ on Zen~4.
-With \texttt{stress --cpu 1}, we observed an accuracy of $74\%$.
+This resulted in an average transmission accuracy of $99.2 \%$ on Zen~3, and $99.3 \%$ on Zen~4.
+With \texttt{stress --cpu 1}, we observed an accuracy of $74 \%$.
 
 \ref{fig:contentiontest_stress} shows the effect of outside CPU stress on the measurement.
 Although the \texttt{stress} command creates more noise in the measurement, the overall contention levels go down (compare with \ref{fig:contentiontest}).
@@ -927,7 +931,7 @@ This still gave the researchers the opportunity to bind each thread to a differe
 ensuring that one of them would be co-located with the receiver.
 
 Rokicki et al. discuss the possibility of altering their covert channel to be fully within two browser instances.
-They propose a similar solution to the problem of co-location as the one we have implemented for JavaSQUIP .
+They propose a similar solution to the problem of co-location as the one we have implemented for JavaSQUIP.
 On this basis, they believably argue that this fully web-based attack would have the same transaction speed as the version
 with a native sender at \textbf{200 bits/s}.
 
@@ -944,7 +948,7 @@ with a native sender at \textbf{200 bits/s}.
 JavaSQUIP exploits a vulnerability in the split-scheduler design of AMD's Zen~2, Zen~3 and Zen~4 architectures.
 This means that JavaSQUIP only works on clients running on a CPU with one of these architectures.
 This limits the attack surface significantly, though the number of affected computers is still significant.
-As of Q3 of 2024, AMD holds a market share of around $33\%$ in CPUs~\cite{amdmarket}.
+As of Q3 of 2024, AMD holds a market share of around $33 \%$ in CPUs~\cite{amdmarket}.
 Most of these CPUs run under the Zen~2, Zen~3 and Zen~4 architecture,
 meaning that large portion of current computers is susceptible to this attack.
 
@@ -959,7 +963,7 @@ The covert channel can be established on any two browser instances where normal 
 Other than \texttt{Date.now()}~\cite{datenow} and \texttt{SharedArrayBuffer}~\cite{sharedarraybuffer},
 no higher-level APIs are needed.
 As an example, even two malicious adverts on different browser instances could conceivably communicate with each other
-with JavaSQUIP .
+with JavaSQUIP.
 
 \paragraph{Speed.}
 JavaSQUIP transmits data at a speed that is currently unmatched by any covert channel in a browser with up-to-date security settings.
@@ -991,14 +995,14 @@ Thus, there is no feasible way to counteract the JavaSQUIP attack by decreasing 
 
 \section{Multithreading}
 Removing the support for \texttt{Web Workers}~\cite{webworkers} or a \texttt{SharedArrayBuffer}~\cite{sharedarraybuffer}
-would break JavaSQUIP .
+would break JavaSQUIP.
 Obviously, disabling these features outright is not a satisfactory solution.
 It would force every website to run all code in the main thread,
 drastically reducing responsiveness for websites with bigger computational needs.
 
 One possibility would be that browsers provide a way to disable access to these resources on a \textit{per-site} or a \textit{per-script} basis.
 
-With \textit{per-site} restriction of \texttt{Web Workers}, a user could prevent an untrusted website from implementing JavaSQUIP .
+With \textit{per-site} restriction of \texttt{Web Workers}, a user could prevent an untrusted website from implementing JavaSQUIP.
 It is not reasonable to ask the user's permission to this widely used API,
 so only a blacklist by the user would be feasible.
 Most users would likely not use this feature, making it generally ineffective.
@@ -1029,7 +1033,7 @@ Consequently, there is currently no way to prevent a website from targeting a sc
 Because JavaSQUIP depends on co-location of the sender and one of the receivers,
 preventing co-location would present a way to make the covert channel impossible.
 The simplest way would be to disable simultaneous multithreading,
-though few users will accept this because of the performance loss of about $25\%$~\cite{Phoronix2018HT, Cutress2020SMT}).
+though few users will accept this because of the performance loss of about $25 \%$~\cite{Phoronix2018HT, Cutress2020SMT}).
 
 We propose a process-based separation of physical CPU cores.
 This approach still makes use of SMT, but prevents threads of different processes to be co-located.
@@ -1048,7 +1052,7 @@ JavaSQUIP has achieved a transmission rate of 1000 bits/s, proving an advantage 
 all other current JavaScript-based covert channels~\cite{vila2017loophole, lipp2017practical},
 in particular over attacking single-scheduler based architectures~\cite{Rokicki2022webport}.
 
-Additionally, we proved a co-location rate of $88.7\%$/$96\%$ with a transmission accuracy of $99.2\%$/$99.3\%$ (Zen~3/Zen~4).
+Additionally, we proved a co-location rate of $88.7 \%$/$96 \%$ with a transmission accuracy of $99.2 \%$/$99.3 \%$ (Zen~3/Zen~4).
 This shows that architectures with multiple scheduler queues present a bigger attack surface than their single-scheduler counterparts.
 
 JavaSQUIP breaks the sandboxing model of a web browser context.
