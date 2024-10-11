@@ -22,7 +22,7 @@
 %\usepackage{siunitx}                 % typesetting SI-units and formatted numbers
 %\usepackage{listings}                % typesetting source code
 \usepackage{booktabs,multirow}        % utils for complex/beautiful tables
-%\usepackage{subcaption}              % placing multiple subfigures in a figure
+\usepackage{subcaption}              % placing multiple subfigures in a figure
 %\usepackage{graphicx}                % including external image files
 %\usepackage{tikz}                    % drawing figures within LaTeX
 
@@ -224,27 +224,35 @@ these parts are called \textit{micro-ops} (\textmu ops)~\cite{AMD2020Optimizatio
 For example, an addition with memory operands may be split up into three \textmu ops: one for loading the operands, one for the addition, and one for storing the result.
 These \textmu ops can be distributed across specialized execution units, enabling more parallelization and load balancing, and thus an increase in performance.
 
+\begin{figure}
+    \centering
+    \begin{subfigure}[b]{\textwidth}
+        \centering
+        \includegraphics[width=0.7\textwidth]{figures/Zen2 arch}
+        \caption{The scheduler layout in AMD Zen~2 (c.f.~\cite{AMD2020OptimizationEPYC7002})}
+        \label{fig:amdzen2}
+    \end{subfigure}
+
+    \begin{subfigure}[b]{\textwidth}
+        \centering
+        \includegraphics[width=0.7\textwidth]{figures/Zen3 arch}
+        \caption{The scheduler layout in AMD Zen~3 (c.f.~\cite{AMD2020OptimizationEPYC7003})}
+        \label{fig:amdzen3}
+    \end{subfigure}
+    \caption{Comparison of the scheduler layouts of AMD Zen~2~and~3 architectures}
+    \label{fig:amdzencomparison}
+\end{figure}
+
 \paragraph{Schedule/Execute.}
 Once created, the \textmu ops are queued to be executed as soon as their dependencies are met -- sometimes out of the order of their arrival.
 Depending on the CPU microarchitecture, there can be one general scheduler queue for all execution units, or multiple.
 While Intel uses one scheduler queue for all its execution units~\cite{Intel_opt},
 architectures like AMD's Zen~2~\cite{AMD2020OptimizationEPYC7002}, Zen~3~\cite{AMD2020OptimizationEPYC7003} and Zen~4~\cite{AMD2023OptimizationZen4} use several specialized scheduler queues.
 When multiple scheduler queues are used, different queues can be specialized for a specific \textmu op or class of \textmu ops.
-Figures \ref{fig:amdzen2} and \ref{fig:amdzen3} illustrate the concept.
+Figure~\ref{fig:amdzencomparison} illustrates the concept.
 Splitting the scheduler queue reduces complexity and enables more efficient power usage.
 
-\begin{figure}
-    \centering
-    \includegraphics[width=0.5\textwidth]{figures/Zen2 arch}
 
-    \caption{The scheduler layout in AMD Zen~2 (c.f.~\cite{AMD2020OptimizationEPYC7002})}
-    \label{fig:amdzen2}
-
-    \includegraphics[width=0.5\textwidth]{figures/Zen3 arch}
-
-    \caption{The scheduler layout in AMD Zen~3 (c.f.~\cite{AMD2020OptimizationEPYC7003})}
-    \label{fig:amdzen3}
-\end{figure}
 
 \paragraph{Retire.}
 After all the \textmu ops of an instruction have completed, the \textit{retire control unit} (RCU) reassembles the results.
@@ -294,6 +302,25 @@ Delayed execution gives away the fact that the victim is currently using that po
 Port contention works independently of the type of scheduler queue used.
 It affects only one execution unit, and thus creates contention and measures execution time with the same instruction.
 
+\begin{figure}
+    \begin{subfigure}[b]{\textwidth}
+        \centering
+        \includegraphics[width=0.7\textwidth]{figures/Zen2 normal operation}
+        \caption{An AMD Zen~2 processor in normal operation: the two instruction streams do not impede each other}
+        \label{fig:amdzen2normaloperation}
+    \end{subfigure}
+
+    \begin{subfigure}[b]{\textwidth}
+        \centering
+        \includegraphics[width=0.7\textwidth]{figures/Zen2 sqc}
+        \caption{An AMD Zen~2 processor exhibiting scheduler queue contention: a stall on the Scheduler queue for ALU1 stalls both instruction streams}
+        \label{fig:amdzen2sqc}
+    \end{subfigure}
+
+    \caption{Comparison between normal operation and scheduler queue contention in an AMD Zen~2 Processor}
+    \label{fig:amdzen2normalvssqc}
+\end{figure}
+
 \paragraph{Scheduler Queue Contention.}
 SQUIP~\cite{squip} on the other hand exploits scheduler queue contention.
 In scheduler queue contention, the attacker fills up the scheduler queue to the point that it is almost at its capacity limit;
@@ -304,39 +331,31 @@ The attacker can measure this easily because it entails a significant increase i
 not only for instructions in the affected queue, but on the whole core.
 Figure~\ref{fig:amdzen2sqc} shows how one instruction stream can stall the other just by filling up the relatively small scheduler queue.
 
-\begin{figure}
-    \centering
-    \includegraphics[width=0.75\textwidth]{figures/Zen2 normal operation}
-
-    \caption{An AMD Zen~2 processor in normal operation: the two instruction streams do not impede each other}
-    \label{fig:amdzen2normaloperation}
-
-    \includegraphics[width=0.75\textwidth]{figures/Zen2 sqc}
-
-    \caption{An AMD Zen~2 processor exhibiting scheduler queue contention: a stall on the Scheduler queue for ALU1 stalls both instruction streams}
-    \label{fig:amdzen2sqc}
-\end{figure}
 
 SQUIP is limited in its applicable CPU architectures because it relies on the split-scheduler architecture of AMD Zen~2, Zen~3 and Zen~4 CPUs to distinguish between \textmu ops.
 However, its advantage is a higher transmission rate compared to port contention.
 Because scheduler queue contention stalls the whole CPU, as compared to port contention stalling just one execution unit,
 a comparatively bigger increase in execution time is achieved.
-Additionally, SQUIP creates very few instuctions on the execution unit where execution times are measured,
-since stalls are produced on another unit.
-This means that the measured execution unit goes from low load to being stalled completely (see Figure~\ref{fig:amdzen2normaloperation} and Figure~\ref{fig:amdzen2sqc}).
-All of this increases the signal-to-noise ratio of the timing measurement,
+SQUIP produces stalls with instructions on a different execution unit than the unit where execution time is measured (see Figure~\ref{fig:amdzen2sqc}).
+The measured execution unit either sees low load -- the measurement instructions, or a complete stall -- scheduler queue contention,
+as illustrated in Figure~\ref{fig:amdzen2normalvssqc}.
+%Additionally, SQUIP creates very few instuctions on the execution unit where execution times are measured,
+%since stalls are produced on another unit.
+%This means that the measured execution unit goes from low load to being stalled completely (see Figure~\ref{fig:amdzen2normalvssqc}).
+This increases the signal-to-noise ratio of the timing measurement,
 enabling shorter time slices per bit.
-All of this makes SQUIP~\cite{squip} a faster and more reliable side channel than port-contention based side channels.
+All of this gives SQUIP~\cite{squip} higher potential transmission speeds and reliability than port-contention based side channels.
 Because of this advantage, JavaSQUIP aims to port this vulnerability to a browser environment.
 
 
 \section{Browser security measures}
 \label{sec:browsersecurity}
-Since the advent of many timing side- and covert channels~\cite{noack2018exploiting, Rokicki2022webport, gruss2016rowhammer, 185126},
+% todo jit compiler
+Since the advent of many timing side and covert channels~\cite{noack2018exploiting, Rokicki2022webport, gruss2016rowhammer, 185126},
 browser developers have implemented many measures to mitigate the threat~\cite{shusterman2021prime, performancenow, performancenowchrome, schwarz2018javascript}.
 This has always meant striking a balance between security and efficiency.
 Because of this, many potential attack surfaces cannot be eliminated without unreasonable losses in performance and functionality,
-though some measures do slow down side- and covert channels significantly.
+though some measures do slow down side and covert channels significantly.
 
 In the following we expand on security measures regarding multithreading, accurate timing in browsers, and low-level operations.
 All three of these are needed to mount the SQUIP attack.
@@ -361,27 +380,31 @@ For example, in Firefox it has an accuracy of 1 ms, and in Chrome it measures wi
 Consequently, both \texttt{Date.now()} and \texttt{performance.now()} give a synchronised timestamp with 1 ms accuracy, making them viable options for synchronisation.
 
 \subsection{Multithreading}\label{subsec:multithreading}
-Though JavaScript does not support low-level control over threading, the \texttt{Web Workers} API~\cite{webworkers} allows the user to create workers running in a separate thread.
+JavaScript does not support low-level control over threading, but the \texttt{Web Workers} API~\cite{webworkers} allows the user to create workers running in a separate thread.
 An instantiated worker runs a predefined script.
 The main thread can interface with the worker via calls to the \texttt{Worker.postMessage()} function and via a \texttt{SharedArrayBuffer}~\cite{sharedarraybuffer}.
 There is no support for selecting a core on which a worker is run on, presenting a challenge to co-locate with the sender.
 
 Creating a \texttt{SharedArrayBuffer} is restricted in two ways: the browser window needs to be SSL-encrypted, and it needs to restrict some Cross-Origin requests.
-Nevertheless, this is not a problem for this attack since the site provides \texttt{https} and all code comes from a single origin.
+Nevertheless, this is not a problem for an attacker on any site that provides \texttt{https} and where all code comes from a single origin.
 With the help of free, easy-to-use ssl certificates such as certbot~\cite{certbot}, almost every website on the internet provides an SSL-encrypted connection.
-This means that the requirements for a \texttt{SharedArrayBuffer} are likely to be met for any public website a malicious actor would target.
+This means that the requirements for a \texttt{SharedArrayBuffer} are likely to be met for any public website where a malicious actor would place their code.
 
 \subsection{Low-level operations in JavaScript}\label{subsec:lowleveljs}
-JavaScript handles numbers as floats by default.
+To create contention on one specific scheduler queue, we need a way to create a stream of equal and co-dependent instructions -- specifically the \texttt{imul} instruction.
+One way to achieve this in a browser context would be \textit{WebAssembly}~\cite{webassembly}.
+For the sake of using as few features of the browser as possible, we implement the needed functionality in JavaScript.
+
+JavaScript handles numbers as floating-point numbers by default.
 This means that a simple invocation of a multiplication like \texttt{a * b;} in JavaScript will not result in an \texttt{imul} instruction on the CPU.
 Rather, \texttt{Math.imul(a, b)}~\cite{mathimul} gives the user a lower-level command:
 It interprets the parameters as \SI{32}{\bit} integers and multiplies them as such, resulting in an \texttt{imul} instruction on the CPU.
 We checked which instructions were generated by running code through V8 -- the compiler used in Chrome --
 using the JavaScript explorer on godbolt.org~\cite{godbolt}.
+% todo but we use firefox/seamonkey
+% https://blog.mozilla.org/attack-and-defense/2020/09/15/inspecting-just-in-time-compiled-javascript/
 
-\pagebreak
-The following function:
-\begin{lstlisting}[language=JavaScript]
+\begin{lstlisting}[float,caption={A test function for the \texttt{imul} instruction},label={lst:testimul},language=JavaScript]
 function test(a) {
 a = Math.imul(a, a);
 a = Math.imul(a, a);
@@ -391,8 +414,8 @@ a = Math.imul(a, a);
 return a;
 }
 \end{lstlisting}
-contained the following instructions when compiled:
-\begin{lstlisting}
+
+\begin{lstlisting}[float,caption={The compiled result of the \texttt{imul} test function},label={lst:compileimul}]
 0x6469d68040b8    78  0f80ba000000         jo 0x6469d6804178  <+0x138>
 0x6469d68040be    7e  8bc9                 movl rcx,rcx
 0x6469d68040c0    80  8bf9                 movl rdi,rcx
@@ -410,9 +433,7 @@ contained the following instructions when compiled:
 0x6469d68040de    9e  0f8046000000         jo 0x6469d680412a  <+0xea>
 \end{lstlisting}
 
-\pagebreak
-Similarly, \texttt{Math.sqrt()}~\cite{mathsqrt} translates to the \texttt{sqrt} instruction:
-\begin{lstlisting}[language=JavaScript]
+\begin{lstlisting}[float,caption={A test function for the \texttt{sqrt} instruction},label={lst:testsqrt},language=JavaScript]
 function test(a) {
 a = Math.sqrt(a);
 a = Math.sqrt(a);
@@ -422,7 +443,8 @@ a = Math.sqrt(a);
 return a;
 }
 \end{lstlisting}
-\begin{lstlisting}
+
+\begin{lstlisting}[float,caption={The compiled result of the \texttt{sqrt} test function},label={lst:compilesqrt}]
 0x62a1e00040aa    6a  c5fb104103           vmovsd xmm0,[rcx+0x3]
 0x62a1e00040af    6f  c5fb51c0             vsqrtsd xmm0,xmm0,xmm0
 0x62a1e00040b3    73  c5fb51c0             vsqrtsd xmm0,xmm0,xmm0
@@ -434,6 +456,10 @@ return a;
 0x62a1e00040cb    8b  c5f92ec8             vucomisd xmm1,xmm0
 \end{lstlisting}
 
+A test function in Listing~\ref{lst:testimul} contains multiple \texttt{Math.imul()} calls.
+The resulting binary in Listing~\ref{lst:compileimul} contains the \texttt{imul} instruction.
+Similarly, \texttt{Math.sqrt()}~\cite{mathsqrt} translates to the \texttt{sqrt} instruction (see Listing~\ref{lst:testsqrt} and Listing~\ref{lst:compilesqrt}).
+
 %--- IMPLEMENTATION ----------------------------------------------------------------
 \chapter{Implementing JavaSQUIP}
 \label{ch:implementation}
@@ -442,11 +468,13 @@ This chapter explains how we worked around these challenges to implement the Jav
 
 \section{General architecture}
 \label{sec:general-architecture}
+% todo Present tense!
 We built a showcase for JavaSQUIP consisting of two web pages: one receiver and one sender.
 The aim was to build a showcase that, while showing the capabilities of the covert channel,
 should reflect as realistic a scenario as possible to also prove the feasibility of a side channel attack.
 The difference between a conventional side channel attack and a covert channel is that a side channel attack involves a (non-cooperating) victim and
 an attacker, while covert channels have a cooperating pair of sender and receiver.
+% todo example of cooperation
 
 The sender in the showcase corresponds to the victim in a side channel scenario.
 Since a victim does not cooperate in an attack, the sender was kept as simple as possible.
@@ -454,7 +482,7 @@ It consists of one thread, sending one bit per timeslice (see \ref{sec:accurate-
 
 The receiver represents the attacker.
 The assumption was that an attacker can execute arbitrary scripts, for example as an interactive advertisement on a website.
-Given this, the attacker can get one thread co-located with the victim and exploit the SQUIP sidechannel to gain information.
+Given this, the attacker can get one thread co-located with the victim and exploit the SQUIP side channel to gain information.
 Details on the implementation are described in the following chapters.
 
 \section{Getting accurate timing}
@@ -469,7 +497,7 @@ JavaSQUIP needs two kinds of timing in order to work properly:
 
 For the synchronised clock, we can use \texttt{Date.now()}~\cite{datenow}, which has a 1ms accuracy.
 This allows us to partition the duration of the transmission into 1ms \textit{timeslices}.
-During one timeslice, a single bit can be transmitted by the existence or absence of port contention.
+During one timeslice, a single bit can be transmitted by the existence or absence of scheduler queue contention.
 The alignment of bytes is solved by starting the transmission on a multiple of 8 timeslices since the start of the epoch (see \ref{subsec:timingjs}).
 Synchronising with \texttt{Date.now()}~\cite{datenow} works, but only for transmissions of up to 1000 bits/s,
 since there is no more precise timestamp in JavaScript which is synchronised across browser instances.
@@ -483,7 +511,7 @@ Since no timing function in JavaScript gives a better accuracy than 0.1ms, we ne
 
 We solved this with a counting worker, which continually increases one variable in the \texttt{SharedArrayBuffer}.
 As explained in section \ref{subsec:multithreading}, the other receiver workers can then access this counter and use it to measure execution times with adequate accuracy.
-The paper on \textit{Fantastic Timers}~\cite{Schwarz2017Timers} does an excellent job on explaining the concept in-depth.
+The paper on \textit{Fantastic Timers}~\cite{Schwarz2017Timers} explains the concept in more depth.
 
 \section{Co-locating with the sender}
 \label{sec:co-location}
@@ -505,7 +533,7 @@ To do this the receiver creates as many receiving workers as the number of virtu
 one for the counting thread (see \ref{sec:accurate-timing}), and one for the sending thread.
 In our experiments, we used an \textit{AMD Ryzen 7 5800X} as representative for Zen~3 and an \textit{AMD Ryzen 7 7700X} as representative for Zen~4.
 Both are 8-core CPUs, so the experiments were run with $8 \times 2 - 2 = 14$ receiver workers.
-Since every thread does continuous work, each thread will most likely be assigned to a unique virtual core.
+Since every thread does continuous work, the operating system will most likely assign each thread to a unique virtual core.
 
 To receive the message, one of the worker threads needs to be co-located with the sending thread.
 Assuming a uniform distribution for the threads, we can calculate the theoretical co-location probability.
@@ -551,10 +579,7 @@ This fills up the scheduler queue of ALU1, eventually causing a queue stall.
 The codependence of the \texttt{imul} operations ensures that they have to be executed one after the other, in order.
 It is ensured simply by using the result of one operation as the input for the next.
 
-The following code snippet shows two functions of the sending process.
-The functions are for sending a zero or a one respectively, in a given time frame.
-The parameter \texttt{until} gives the end of the timeslice to send a bit.
-\begin{lstlisting}[language=JavaScript]
+\begin{lstlisting}[float,caption={The functions \texttt{send\_zero()} and \texttt{send\_one()}},label={lst:sendzeroone},language=JavaScript]
 function send_zero(until) {
   until = +until;
 
@@ -585,6 +610,10 @@ function send_one(until) {
 }
 \end{lstlisting}
 
+Listing~\ref{lst:sendzeroone} shows two functions of the sending process.
+The functions are for sending a zero or a one respectively, in a given time frame.
+The parameter \texttt{until} gives the end of the timeslice to send a bit.
+
 \section{Detecting scheduler queue contention}
 \label{sec:detect-sqc}
 The receiving process needs to detect whether the sender has sent a \texttt{1} or a \texttt{0}.
@@ -593,7 +622,7 @@ This was implemented by issuing several \texttt{imul} instructions,
 and measuring the delay with the help of a separate counting thread.
 
 
-\begin{lstlisting}[float][language=JavaScript]
+\begin{lstlisting} [float,caption={The squip() function},label={lst:squip}][language=JavaScript]
 function squip(start_value, factor) {
   start_value = +start_value;
   factor = factor|0;
@@ -625,7 +654,7 @@ function squip(start_value, factor) {
 }
 \end{lstlisting}
 
-In this piece of code, many features of the JavaScript environment are utilised to ensure the correct behavior of the program.
+In Listing~\ref{lst:squip}, many features of the JavaScript environment are utilised to ensure the correct behavior of the program.
 The most noticeable is the use of \texttt{|0} for many operations with numbers.
 It forces the interpretation of the given constant or variable as an integer, thus simplifying the operation.
 For example, \texttt{1.4|0 + 4.5|0} will be interpreted as an integer addition and evaluate to \texttt{5}. \\
@@ -749,11 +778,7 @@ On the other hand, they have little effect on an unstalled queue, since they ope
 The implementation can be seen in section~\ref{sec:detect-sqc}
 
 \paragraph{Delay loop.}
-A delay loop was added after each measurement to clearly separate measurements.
-To this effect, we filled the scheduler queue with other operations for a short time between measurements.
-Since no normal delay function gives a better accuracy than 1ms, a busy-waiting loop was used.
-The following code shows the delay loop that was executed after each measurement.
-\begin{lstlisting}[language=JavaScript]
+\begin{lstlisting}[float,caption={The delay loop after a measurement},label={lst:delayloop},language=JavaScript]
 let k = 0|0;
 while(k < 1000|0) {
   dummy  ^= k|0;
@@ -761,13 +786,18 @@ while(k < 1000|0) {
 }
 \end{lstlisting}
 
+A delay loop was added after each measurement to clearly separate measurements.
+To this effect, we filled the scheduler queue with other operations for a short time between measurements.
+Since no normal delay function gives a better accuracy than 1ms, a busy-waiting loop was used.
+Listing~\ref{lst:delayloop} shows the delay loop that was executed after each measurement.
+
+
 Figure~\ref{fig:contentiontest} demonstrates these measures working:
 Receiver 5 -- which is co-located with the sender -- receives a clean signal of alternating \texttt{1}'s and \texttt{0}'s.
 Meanwhile, all the remaining receivers -- which are co-located either with each other or with the counting thread -- show very little contention.
 
 
 %--- EVALUATING JAVASQUIP --------------------------------------------------------------
-\pagebreak
 \chapter{Evaluating JavaSQUIP}
 \label{ch:evaluation}
 
