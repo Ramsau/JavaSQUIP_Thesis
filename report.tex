@@ -485,6 +485,8 @@ The assumption was that an attacker can execute arbitrary scripts, for example a
 Given this, the attacker can get one thread co-located with the victim and exploit the SQUIP side channel to gain information.
 Details on the implementation are described in the following chapters.
 
+% todo what is a JIT compiler
+
 \section{Getting accurate timing}
 \label{sec:accurate-timing}
 JavaSQUIP needs two kinds of timing in order to work properly:
@@ -512,6 +514,7 @@ Since no timing function in JavaScript gives a better accuracy than 0.1ms, we ne
 We solved this with a counting worker, which continually increases one variable in the \texttt{SharedArrayBuffer}.
 As explained in section \ref{subsec:multithreading}, the other receiver workers can then access this counter and use it to measure execution times with adequate accuracy.
 The paper on \textit{Fantastic Timers}~\cite{Schwarz2017Timers} explains the concept in more depth.
+% todo code snippet of counting worker
 
 \section{Co-locating with the sender}
 \label{sec:co-location}
@@ -576,8 +579,6 @@ JavaSQUIP targets AMD Zen~2, Zen~3 and Zen~4;
 these architectures support multiplication only on ALU1~\cite{AMD2020OptimizationEPYC7003}.
 When sending a 1, JavaSQUIP makes multiple codependent calls to \texttt{Math.imul()}, which translate to the \texttt{imul} instruction.
 This fills up the scheduler queue of ALU1, eventually causing a queue stall.
-The codependence of the \texttt{imul} operations ensures that they have to be executed one after the other, in order.
-It is ensured simply by using the result of one operation as the input for the next.
 
 \begin{lstlisting}[float,caption={The functions \texttt{send\_zero()} and \texttt{send\_one()}},label={lst:sendzeroone},language=JavaScript]
 function send_zero(until) {
@@ -609,18 +610,6 @@ function send_one(until) {
   dummy[1] ^= i|0;
 }
 \end{lstlisting}
-
-Listing~\ref{lst:sendzeroone} shows two functions of the sending process.
-The functions are for sending a zero or a one respectively, in a given time frame.
-The parameter \texttt{until} gives the end of the timeslice to send a bit.
-
-\section{Detecting scheduler queue contention}
-\label{sec:detect-sqc}
-The receiving process needs to detect whether the sender has sent a \texttt{1} or a \texttt{0}.
-This is equivalent to detecting scheduler queue contention.
-This was implemented by issuing several \texttt{imul} instructions,
-and measuring the delay with the help of a separate counting thread.
-
 
 \begin{lstlisting} [float,caption={The squip() function},label={lst:squip}][language=JavaScript]
 function squip(start_value, factor) {
@@ -654,7 +643,7 @@ function squip(start_value, factor) {
 }
 \end{lstlisting}
 
-In Listing~\ref{lst:squip}, many features of the JavaScript environment are utilised to ensure the correct behavior of the program.
+In Listing~\ref{lst:sendzeroone} and Listing~\ref{lst:squip}, many features of the JavaScript environment are utilised to ensure the correct behavior of the program.
 The most noticeable is the use of \texttt{|0} for many operations with numbers.
 It forces the interpretation of the given constant or variable as an integer, thus simplifying the operation.
 For example, \texttt{1.4|0 + 4.5|0} will be interpreted as an integer addition and evaluate to \texttt{5}. \\
@@ -662,7 +651,24 @@ Similarly, using a variable with a~\texttt{+} in front -- as in line 2 -- will f
 We use \texttt{Atomics.load()}~\cite{atomicsload} to get the current value of the counting thread.
 It is an atomic operation, so thread safety and correctness of the value are ensured.
 
-The above code snippet shows how the receiver issues 10 \texttt{sqrt} and 20 \texttt{imul} instructions,
+The codependence of the \texttt{imul} operations ensures that they have to be executed one after the other, in order.
+It is ensured simply by using the result of one operation as the input for the next.
+The input for the \texttt{imul} operations is calculated in lines $15$ and $16$ of Listing~\ref{lst:sendzeroone} based on an input variable \texttt{dummy}.
+This prevents the JIT-compiler from pre-computing the result and optimizing away the \texttt{imul} calls.
+
+
+Listing~\ref{lst:sendzeroone} shows two functions of the sending process.
+The functions are for sending a zero or a one respectively, in a given time frame.
+The parameter \texttt{until} gives the end of the timeslice to send a bit.
+
+\section{Detecting scheduler queue contention}
+\label{sec:detect-sqc}
+The receiving process needs to detect whether the sender has sent a \texttt{1} or a \texttt{0}.
+This is equivalent to detecting scheduler queue contention.
+This was implemented by issuing several \texttt{imul} instructions,
+and measuring the delay with the help of a separate counting thread.
+
+Listing~\ref{lst:squip} shows how the receiver issues 10 \texttt{sqrt} and 20 \texttt{imul} instructions,
 retreiving the counter value before and after (see lines \texttt{7} and \texttt{23}).
 If the retire control unit was not blocked by an overflowing scheduler queue,
 the instructions can be reordered so both reads of the counting value are right after one another.
@@ -678,7 +684,7 @@ In this case, the \texttt{sqrt} instructions are also stalled, further increasin
 In the case that no stall occurs, the additional \texttt{sqrt} instructions do not hinder the program flow,
 since they target a different scheduler queue.
 
-One can see in line \texttt{27} that we do not check the actual difference between \texttt{start\_time} and \texttt{end\_time},
+In line \texttt{27}, that we do not check the actual difference between \texttt{start\_time} and \texttt{end\_time},
 but rather only return a \texttt{1} if the two are different, and a \texttt{0} otherwise.
 Since we can assume that a difference in \texttt{start\_time} and \texttt{end\_time} is an indicator of scheduler queue contention,
 this gives a good measurement;
@@ -719,15 +725,15 @@ The simplest parameter in SQUIP is the delay threshold.
 It determines whether the summed up delay of a timeslice is registered as a \texttt{0} or a \texttt{1}.
 If the threshold is too high or too low, results are skewed towards registering a \texttt{0} or a \texttt{1} respectively.
 
-To tune this parameter, the resulting bitstream was checked against the actual sent stream.
-All of the bits that were wrongly registered as \texttt{1} or wrongly \texttt{0} were tallied up separately.
-Then the delay threshold was adjusted until faulty \texttt{1}'s and faulty \texttt{0}'s were approximately equally frequent,
+To tune this parameter, the resulting bitstream is checked against the actual sent stream.
+All of the bits that are wrongly registered as \texttt{1} or wrongly \texttt{0} are tallied up separately.
+Then the delay threshold is adjusted until faulty \texttt{1}'s and faulty \texttt{0}'s are approximately equally frequent,
 meaning that no skew toward high or low bits is present and the delay threshold is set optimally.
 
 Figure~\ref{fig:contentionhistogram} shows the distribution of execution times per timeslice with and without scheduler queue contention.
 Timeslices without scheduler queue contention show very short execution times, except for a small number of outliers.
 Execution times for timeslices with scheduler queue contention vary more, though they are clearly separable from those without contention.
-A threshold value of $0.21$ would be optimal, giving the best margin for \texttt{0}- and \texttt{1}-transmissions.
+A threshold value of $0.21$ is optimal, giving the best margin for \texttt{0}- and \texttt{1}-transmissions.
 
 
 \section{Number of instructions for a queue stall}
@@ -775,7 +781,7 @@ In the measurement function, 10 \texttt{sqrt} instructions serve as a buffer to 
 they delay the execution, while not creating contention on ALU1.
 This means that the effect of a stalled queue is more pronounced, because the \texttt{sqrt} instructions will also be stalled.
 On the other hand, they have little effect on an unstalled queue, since they operate on a different scheduler.
-The implementation can be seen in section~\ref{sec:detect-sqc}
+The implementation can be seen in Section~\ref{sec:detect-sqc}
 
 \paragraph{Delay loop.}
 \begin{lstlisting}[float,caption={The delay loop after a measurement},label={lst:delayloop},language=JavaScript]
@@ -786,10 +792,10 @@ while(k < 1000|0) {
 }
 \end{lstlisting}
 
-A delay loop was added after each measurement to clearly separate measurements.
-To this effect, we filled the scheduler queue with other operations for a short time between measurements.
-Since no normal delay function gives a better accuracy than 1ms, a busy-waiting loop was used.
-Listing~\ref{lst:delayloop} shows the delay loop that was executed after each measurement.
+A delay loop is added after each measurement to clearly separate measurements.
+To this effect, we fill the scheduler queue with other operations for a short time between measurements.
+Since no normal delay function gives a better accuracy than 1ms, a busy-waiting loop is used.
+Listing~\ref{lst:delayloop} shows the delay loop that is executed after each measurement.
 
 
 Figure~\ref{fig:contentiontest} demonstrates these measures working:
@@ -806,8 +812,8 @@ It consists of two web pages communicating with each other solely over the JavaS
 
 \section {Test setup}
 \label{sec:testsetup}
-Our aim was to evaluate JavaSQUIP on both the Zen~3 and Zen~4 architecture.
-To this end, we tested on an \textit{AMD Ryzen 7 5800X} as representative for Zen~3 and an \textit{AMD Ryzen 7 7700X} as representative for Zen~4.
+To evaluate JavaSQUIP on both the Zen~3 and Zen~4 architecture,
+we tested on an \textit{AMD Ryzen 7 5800X} as representative for Zen~3 and an \textit{AMD Ryzen 7 7700X} as representative for Zen~4.
 
 The test setup constists of two webpages: a sender and a receiver.
 The sender simulates the target, and the receiver simulates a page that is controlled by the attacker.
@@ -853,6 +859,8 @@ This is consistent with the theoretical co-location probability of $93.3 \%$ cal
 When tested under stress with \texttt{stress --cpu 1}, we achieved an average co-location probability of $53.7 \%$.
 Most likely, the sender was co-located to a receiver more often than that,
 but the corresponding receiver was not able to detect the preamble due to the noise.
+When run simultaneously with \texttt{stress --cpu 2}, JavaSQUIP is not able to receive the preamble.
+As a result, co-location is never detected and transmission of data is not possible.
 
 \paragraph{Noise.}
 For measuring noise resistance, we only looked at those transmissions where the preamble was recognised.
@@ -876,6 +884,7 @@ The result is more relocation of threads (the sending thread is first co-located
 \pagebreak
 \chapter{Comparison to other browser covert channels}
 \label{ch:comparison}
+% todo compare including transmission errors
 We have shown that JavaSQUIP is a fast and robust cross-instance covert channel for modern browsers.
 To further illustrate the power of JavaSQUIP,
 we will now compare its performance to similar modern browser-based covert channels.
@@ -915,7 +924,7 @@ The following ways of sharing a renderer process have been found:
 \end{itemize}
 
 Having one of these is possible, though it does limit the applicability of this covert channel.
-The writers of the paper also present a version of the covert channel that works without a shared renderer process,
+The authors of the paper also present a version of the covert channel that works without a shared renderer process,
 at the cost of a significant decrease in transmission rate.
 
 Vila et al. propose a covert channel where the receiver continually checks the delay of an event handler
@@ -973,6 +982,7 @@ with a native sender at \textbf{200 bits/s}.
 \caption{A comparison of transmission speeds between browser-based covert channels.}
 \label{fig:speedcomparison}
 \end{figure}
+%todo continue here, replace with table
 
 \paragraph{Affected CPUs.}
 JavaSQUIP exploits a vulnerability in the split-scheduler design of AMD's Zen~2, Zen~3 and Zen~4 architectures.
