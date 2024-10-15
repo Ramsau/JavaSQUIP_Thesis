@@ -9,6 +9,7 @@
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
 \usepackage{siunitx}
+\usepackage{makecell}
 \addtokomafont{disposition}{\rmfamily}
 
 \usepackage[bsc,             % for Bachelor's Thesis titlepage
@@ -125,7 +126,7 @@ We look into the security measures used in common browsers to prevent timing att
 
 Our covert channel can provide communication across separate browser instances at a speed of 1000 bits/s,
 which is faster than any current covert channel of this type.
-At this speed, we were able to achieve a transmission accuracy of $99.2 \%$ and $99.3 \%$ on Zen 3 and Zen 4 respectively.
+At this speed, we are able to achieve a transmission accuracy of $99.2~\%$ and $99.3~\%$ on Zen 3 and Zen 4 respectively.
 
 Modern CPUs are becoming ever more complex, and with this complexity come more possibilities for side channel attacks.
 JavaSQUIP makes it clear that the security measures of current browsers have not yet adapted to protect against these kinds of attacks.
@@ -269,7 +270,7 @@ most of these execution units would stay unused while an instruction is executed
 With \textit{Simultaneous Multithreading} (SMT), one physical core is split into multiple logical cores
 -- most commonly, two logical cores per physical core are implemented~\cite{tullsen1995simultaneous}.
 This means that one core executes two threads simultaneously, distributing the workload across its execution units more effectively.
-Tests show that this provides an average performance gain of about $25 \%$~\cite{Phoronix2018HT, Cutress2020SMT}
+Tests show that this provides an average performance gain of about $25~\%$~\cite{Phoronix2018HT, Cutress2020SMT}
 with relatively little additional architecture needed.
 
 The two threads that are being executed on the same core are called \textit{co-located}.
@@ -347,10 +348,27 @@ enabling shorter time slices per bit.
 All of this gives SQUIP~\cite{squip} higher potential transmission speeds and reliability than port-contention based side channels.
 Because of this advantage, JavaSQUIP aims to port this vulnerability to a browser environment.
 
+\section{JavaScript in a browser environment}
+\label{sec:javascriptenv}
+JavaScript~\cite{javascript} is the main scripting language for running code in a website.
+It is an interpreted language, which means that the browser executes code without compilation into a binary format.
+JavaScript developers benefit from writing high-level platform-independent code,
+while the interpreter takes care of executing it on the user's machine.
+
+To improve performance, modern browsers use \textit{just-in-time (JIT) compilation}~\cite{jitcompiler}.
+The interpreter monitors the program flow during execution.
+If a function is called very often,
+it is computationally cheaper to compile it once rather than repeatedly interpreting it.
+The compilation is done in two stages: baseline compilation and optimized compilation.
+The baseline compiler creates the binary representation of the function.
+It also optimizes away unnecessary code, such as unused calculations, while keeping the execution equivalent to the script.
+If the function is repeatedly called with similar arguments, the optimized compiler creates a second binary code.
+This second binary is optimized based on assumptions about the arguments -- such as their types and properties.
+The optimized binary is executed after assessing the truth of the assumptions, and is discarded if the assumptions do not hold.
 
 \section{Browser security measures}
 \label{sec:browsersecurity}
-% todo jit compiler
+% todo these citations ugly
 Since the advent of many timing side and covert channels~\cite{noack2018exploiting, Rokicki2022webport, gruss2016rowhammer, 185126},
 browser developers have implemented many measures to mitigate the threat~\cite{shusterman2021prime, performancenow, performancenowchrome, schwarz2018javascript}.
 This has always meant striking a balance between security and efficiency.
@@ -374,7 +392,7 @@ Timing information from \texttt{performance.now()} can still be synchronised;
 The \textit{time origin} of the context is given by the \texttt{performance.timeOrigin()}~\cite{performancetimeorigin} property.
 This way, the timestamps from \texttt{performance.now()} can be globally synchronised.
 
-The accuracy of \texttt{performance.now()} has been heavily restricted by browsers to counteract the threat of timing attacks.
+The accuracy of \texttt{performance.now()} has been heavily restricted by browser developers to counteract the threat of timing attacks.
 For example, in Firefox it has an accuracy of 1 ms, and in Chrome it measures with an accuracy of 0.1 ms~\cite{performancenow, performancenowchrome}.
 
 Consequently, both \texttt{Date.now()} and \texttt{performance.now()} give a synchronised timestamp with 1 ms accuracy, making them viable options for synchronisation.
@@ -390,6 +408,7 @@ Nevertheless, this is not a problem for an attacker on any site that provides \t
 With the help of free, easy-to-use ssl certificates such as certbot~\cite{certbot}, almost every website on the internet provides an SSL-encrypted connection.
 This means that the requirements for a \texttt{SharedArrayBuffer} are likely to be met for any public website where a malicious actor would place their code.
 
+%todo mention jit compiler
 \subsection{Low-level operations in JavaScript}\label{subsec:lowleveljs}
 To create contention on one specific scheduler queue, we need a way to create a stream of equal and co-dependent instructions -- specifically the \texttt{imul} instruction.
 One way to achieve this in a browser context would be \textit{WebAssembly}~\cite{webassembly}.
@@ -398,8 +417,8 @@ For the sake of using as few features of the browser as possible, we implement t
 JavaScript handles numbers as floating-point numbers by default.
 This means that a simple invocation of a multiplication like \texttt{a * b;} in JavaScript will not result in an \texttt{imul} instruction on the CPU.
 Rather, \texttt{Math.imul(a, b)}~\cite{mathimul} gives the user a lower-level command:
-It interprets the parameters as \SI{32}{\bit} integers and multiplies them as such, resulting in an \texttt{imul} instruction on the CPU.
-We checked which instructions were generated by running code through V8 -- the compiler used in Chrome --
+It interprets the parameters as 32~bit integers and multiplies them as such, resulting in an \texttt{imul} instruction on the CPU.
+We verify which instructions were generated by running code through V8 -- the compiler used in Chrome --
 using the JavaScript explorer on godbolt.org~\cite{godbolt}.
 % todo but we use firefox/seamonkey
 % https://blog.mozilla.org/attack-and-defense/2020/09/15/inspecting-just-in-time-compiled-javascript/
@@ -464,13 +483,12 @@ Similarly, \texttt{Math.sqrt()}~\cite{mathsqrt} translates to the \texttt{sqrt} 
 \chapter{Implementing JavaSQUIP}
 \label{ch:implementation}
 As described in Section~\ref{sec:browsersecurity}, there are some challenges to overcome when implementing a timing attack in a browser.
-This chapter explains how we worked around these challenges to implement the JavaSQUIP covert channel.
+This chapter explains how we work around these challenges to implement the JavaSQUIP covert channel.
 
 \section{General architecture}
 \label{sec:general-architecture}
-% todo Present tense!
-We built a showcase for JavaSQUIP consisting of two web pages: one receiver and one sender.
-The aim was to build a showcase that, while showing the capabilities of the covert channel,
+We build a showcase for JavaSQUIP consisting of two web pages: one receiver and one sender.
+The aim is to build a showcase that, while showing the capabilities of the covert channel,
 should reflect as realistic a scenario as possible to also prove the feasibility of a side channel attack.
 The difference between a conventional side channel attack and a covert channel is that a side channel attack involves a (non-cooperating) victim and
 an attacker, while covert channels have a cooperating pair of sender and receiver.
@@ -481,11 +499,9 @@ Since a victim does not cooperate in an attack, the sender was kept as simple as
 It consists of one thread, sending one bit per timeslice (see \ref{sec:accurate-timing}) via issuing \texttt{Math.imul()} instructions or not.
 
 The receiver represents the attacker.
-The assumption was that an attacker can execute arbitrary scripts, for example as an interactive advertisement on a website.
+The assumption is that an attacker can execute arbitrary scripts, for example as an interactive advertisement on a website.
 Given this, the attacker can get one thread co-located with the victim and exploit the SQUIP side channel to gain information.
 Details on the implementation are described in the following chapters.
-
-% todo what is a JIT compiler
 
 \section{Getting accurate timing}
 \label{sec:accurate-timing}
@@ -511,7 +527,7 @@ since there is no more precise timestamp in JavaScript which is synchronised acr
 The receiver also needs a way to measure the small variations in timing whenever a scheduler queue gets blocked.
 Since no timing function in JavaScript gives a better accuracy than 0.1ms, we need to provide our own timing.
 
-We solved this with a counting worker, which continually increases one variable in the \texttt{SharedArrayBuffer}.
+We solve this with a counting worker, which continually increases one variable in the \texttt{SharedArrayBuffer}.
 As explained in section \ref{subsec:multithreading}, the other receiver workers can then access this counter and use it to measure execution times with adequate accuracy.
 The paper on \textit{Fantastic Timers}~\cite{Schwarz2017Timers} explains the concept in more depth.
 % todo code snippet of counting worker
@@ -534,21 +550,21 @@ The receiver has one thread running on each virtual core,
 leaving just one virtual core open for the sender's thread to occupy.
 To do this the receiver creates as many receiving workers as the number of virtual cores in the machine, minus two:
 one for the counting thread (see \ref{sec:accurate-timing}), and one for the sending thread.
-In our experiments, we used an \textit{AMD Ryzen 7 5800X} as representative for Zen~3 and an \textit{AMD Ryzen 7 7700X} as representative for Zen~4.
-Both are 8-core CPUs, so the experiments were run with $8 \times 2 - 2 = 14$ receiver workers.
+In our experiments, we use an \textit{AMD Ryzen 7 5800X} as representative for Zen~3 and an \textit{AMD Ryzen 7 7700X} as representative for Zen~4.
+Both are 8-core CPUs, so the experiments are run with $8 \times 2 - 2 = 14$ receiver workers.
 Since every thread does continuous work, the operating system will most likely assign each thread to a unique virtual core.
 
 To receive the message, one of the worker threads needs to be co-located with the sending thread.
 Assuming a uniform distribution for the threads, we can calculate the theoretical co-location probability.
 The only way that the sender is not co-located with a receiver is that the sender is co-located with the counting thread,
 which is a $\frac{1}{15}$ chance.
-Thus, the theoretical co-location probability is $\frac{14}{15} \approx 93.3 \%$.
+Thus, the theoretical co-location probability is $\frac{14}{15} \approx 93.3~\%$.
 Figure~\ref{fig:colocation} illustrates one possible configuration of threads on the 16 virtual cores.
 
 To figure out which receiver is the one co-located with the sender,
 we need to take advantage of some characteristic of the transmission.
 With some optimisations of the receiver workers -- described closer in \ref{sec:reducecontention} --
-we were able to get the contention of two co-located receiver workers very low.
+we are able to get the contention of two co-located receiver workers very low.
 The counting thread does not cause much contention either.
 This means that if a \texttt{1} is sent, the sender will cause the highest scheduler queue contention level -- i.e. the longest execution time --
 among all the physical cores.
@@ -665,19 +681,19 @@ The parameter \texttt{until} gives the end of the timeslice to send a bit.
 \label{sec:detect-sqc}
 The receiving process needs to detect whether the sender has sent a \texttt{1} or a \texttt{0}.
 This is equivalent to detecting scheduler queue contention.
-This was implemented by issuing several \texttt{imul} instructions,
+This is implemented by issuing several \texttt{imul} instructions,
 and measuring the delay with the help of a separate counting thread.
 
 Listing~\ref{lst:squip} shows how the receiver issues 10 \texttt{sqrt} and 20 \texttt{imul} instructions,
 retreiving the counter value before and after (see lines \texttt{7} and \texttt{23}).
-If the retire control unit was not blocked by an overflowing scheduler queue,
+If the retire control unit is not blocked by an overflowing scheduler queue,
 the instructions can be reordered so both reads of the counting value are right after one another.
 This results in the measured time delay being zero, which means no scheduler queue contention took place.
 If the two values are not equal, we can deduce that the program flow was held up by scheduler queue contention:
 The program flow was not reordered because the scheduler was stalled, and the counting thread increased the counter
 between the execution of line \texttt{7} and line \texttt{23}.
 
-The combination of \texttt{sqrt} and \texttt{imul} instructions was chosen because they work on different scheduler queues.
+The combination of \texttt{sqrt} and \texttt{imul} instructions is selected because they work on different scheduler queues.
 If the scheduler queue for ALU1 overflows because of the additional \texttt{imul} instructions,
 the whole instruction queue stalls -- which prevents the reordering of lines \texttt{7} and \texttt{23}.
 In this case, the \texttt{sqrt} instructions are also stalled, further increasing the execution time between lines \texttt{7} and \texttt{23}.
@@ -690,15 +706,15 @@ Since we can assume that a difference in \texttt{start\_time} and \texttt{end\_t
 this gives a good measurement;
 a \texttt{0} is returned when there is no contention, and longer execution times do not throw off the average,
 since at maximum a \texttt{1} can be returned.
-We also tried returning the actual difference of the counting thread values, i.e. returning the actual execution time.
-It mostly worked as well as the final version, but some measurements were thrown off by longer delays in execution,
-which increased the average execution time unproportionally.
+Returning the actual difference of the counting thread values, i.e. returning the actual execution time, mostly gives equal results.
+Some measurements are however thrown off by longer delays in execution,
+which increases the average execution time unproportionally.
 
 The \texttt{squip} function is run 100 times per timeslice, summing up the return values of each iteration.
 At the end of the timeslice, this sum is divided by 100,
 resulting in the relative likelihood of a queue stall between time measurements, or \textit{stall likelihood}.
 If the stall likelihood is above the threshold (see Section~\ref{sec:delaythreshold}), a \texttt{1} is registered, else a \texttt{0}.
-Figure~\ref{fig:contentioncoalesced} shows that scheduler queue contention usually affects around $30-50 \%$ of the tries in a timeslice.
+Figure~\ref{fig:contentioncoalesced} shows that scheduler queue contention usually affects around $30-50~\%$ of the tries in a timeslice.
 Since this metric is closely related to the execution time of the measurement, the two terms are used interchangeably in the rest of this thesis.
 
 
@@ -714,9 +730,9 @@ Since this metric is closely related to the execution time of the measurement, t
 \end{figure}
 
 JavaSQUIP is intended to show SQUIP's potential as an attack in a browser setting.
-Because of this, we aimed to make it as fast and stable as possible.
+Because of this, we aim to make it as fast and stable as possible.
 The transmission speed is limited by the environment, as the time slices cannot be smaller than 1ms.
-The remaining settings and features were adjusted so the transmission is as accurate as possible at the speed of 1000 bits/s.
+The remaining settings and features are adjusted so the transmission is as accurate as possible at the speed of 1000 bits/s.
 
 \section{Delay threshold}
 \label{sec:delaythreshold}
@@ -742,39 +758,39 @@ The number of instructions is another tunable parameter:
 it needs to be big enough to cause a queue stall and a spike in execution time,
 yet it needs to be as small as possible to minimise chance of a stall bleeding into the following timeslice.
 
-To tune the number of \texttt{imul} instructions, a bleed-over test was constructed.
+To tune the number of \texttt{imul} instructions, a bleed-over test is constructed.
 It test consists of a string of alternating \texttt{1}s and \texttt{0}s, so contrasts between different bits could be easily observed.
-The amount of \texttt{imul} instructions was tuned by successively reducing the number and running a test.
-As soon as no spike in execution time was registered, the lower limit was found.
+The amount of \texttt{imul} instructions is tuned by successively reducing the number and running a test.
+The point where no spike in execution time is registered any more is set as the lower limit for the amount of \texttt{imul} instructions.
 Figure~\ref{fig:contentiontest} shows the final tuned system;
 the spikes for a \texttt{1} are pronounced, while the execution time in a \texttt{0}-timeslice is only slightly higher than for the remaining receivers.
-For Zen~4 systems, 200 co-dependent \texttt{imul} instructions were found as the optimum.
-Small changes to the number of instructions did not create meaningful differences in performance.
+For Zen~4 systems, 200 co-dependent \texttt{imul} instructions are the optimum.
+Small changes to the number of instructions do not create meaningful differences in performance.
 Figure~\ref{fig:contentioncoalesced} illustrates that this system is quite robust across different tests.
 
 \section{Minimising contention by the receivers}
 \label{sec:reducecontention}
 The receiver detects a queue stall by measuring whether two operations were reordered to be right after one another,
 or whether the scheduler queue was stalled between the two operations by contention.
-To detect a stall, the execution time for \texttt{imul} instruction calls were measured.
+To detect a stall, the execution time for \texttt{imul} instruction calls is measured.
 See Section~\ref{sec:detect-sqc} for a detailed explanation of the stall detection.
 
 To improve the signal-to-noise ratio, the receivers should create as little contention as possible themselves.
 This is helpful in the transmission, as it reduces the contention for two co-located receivers,
 maximizing the contrast to the receiver that is co-located with the sender (see \ref{sec:co-location})
-Three optimisations were done in the receiver worker: adjusting the \textit{number of stall instructions},
+Three optimisations are employed in the receiver worker: adjusting the \textit{number of stall instructions},
 using \textit{buffer instructions}, and a \textit{delay loop}.
 
 \paragraph{Number of stall instructions.}
-To get a more stable result, several successive \texttt{imul} instructions were used.
+To get a more stable result, several successive \texttt{imul} instructions are used.
 On the other hand, too many instructions would create contention themselves, so fewer instructions would be better.
-A detection test was set up to determine the minimum amount of instructions to be able to detect contention by the sender.
+A detection test is set up to determine the minimum amount of instructions to be able to detect contention by the sender.
 
-The detection test was constructed similarly to the bleed-over test:
-alternating \texttt{1}s and \texttt{0}s were received, and the delays measured.
-The number of \texttt{imul} instructions in the receiver worker was reduced until no signal was retrievable,
+The detection test is constructed similarly to the bleed-over test:
+alternating \texttt{1}s and \texttt{0}s are received, and the delays measured.
+The number of \texttt{imul} instructions in the receiver worker is reduced until no signal is retrievable,
 resulting in a lower bound for the number of \texttt{imul} instructions in the receiver worker.
-For Zen~4, the optimum number of \texttt{imul} instructions was found to be $20$.
+For Zen~4, the optimum number of \texttt{imul} instructions is $20$.
 
 \paragraph{Buffer instructions.}
 In the measurement function, 10 \texttt{sqrt} instructions serve as a buffer to delay the \texttt{imul} instrucions:
@@ -813,15 +829,15 @@ It consists of two web pages communicating with each other solely over the JavaS
 \section {Test setup}
 \label{sec:testsetup}
 To evaluate JavaSQUIP on both the Zen~3 and Zen~4 architecture,
-we tested on an \textit{AMD Ryzen 7 5800X} as representative for Zen~3 and an \textit{AMD Ryzen 7 7700X} as representative for Zen~4.
+we test on an \textit{AMD Ryzen 7 5800X} as representative for Zen~3 and an \textit{AMD Ryzen 7 7700X} as representative for Zen~4.
 
-The test setup constists of two webpages: a sender and a receiver.
+The test setup consists of two webpages: a sender and a receiver.
 The sender simulates the target, and the receiver simulates a page that is controlled by the attacker.
-Because the attacker has little or no control over the target, we kept the sender page minimal.
+Because the attacker has little or no control over the target, we keep the sender page minimal.
 The sender has only one working thread.
 The working thread is sending either a 0 (no action) or a 1 (contention with codependent \texttt{Math.imul()} calls) for each timeslice.
 With more control over the receiver, the attacker can ensure co-location from this side.
-For our tests on the \textit{AMD Ryzen 7 5800X}(Zen~3) and \textit{AMD Ryzen 7 7700X}(Zen~4), we needed 14 receiving workers.
+For our tests on the \textit{AMD Ryzen 7 5800X}(Zen~3) and \textit{AMD Ryzen 7 7700X}(Zen~4), we need 14 receiving workers.
 An explanation for the number of receivers needed can be found in Chapter~\ref{sec:co-location}.
 
 To distinguish a message from random noise on the CPU, the sender sends a preamble before the actual data.
@@ -830,47 +846,37 @@ If the receiver sees two ascending bytes between 100 and 109, it is highly likel
 a message was detected.
 For easier evaluation of the transmission accuracy, the message is also stored on the receiver's side,
 so that the number of "faulty \texttt{1}" and "faulty \texttt{0}" bits can be automatically calculated.
-In our test setup, messages of 500 random bytes were sent at a transmission speed of 1000bits/s.
+In our test setup, messages of 500 random bytes are sent at a transmission speed of 1000bits/s.
 This results in a transmission time of $\frac{500 \times 8}{1000} = 4$ seconds.
 
 \section{Speed}
 The sender and receiver need to know the desired transmission speed beforehand to match up their timeslices.
 This means that the transmission speed is a fixed value and needs no further calculation.
 Due to the reduced resolution of the Date.now() timer used for the time slices (see Section~\ref{sec:accurate-timing}),
-our best achievable speed was 1000bits/s.
+our best achievable speed is 1000bits/s.
 
 There is, however, still some overhead for the preamble (see Section~\ref{sec:testsetup}).
 It is a fixed size of 10 bytes regardless of the message,
-so the relative overhead tends to $0 \%$ as the message size increases.
+so the relative overhead tends to $0~\%$ as the message size increases.
 
 \section{Reliability}
 There are two aspects that affect the reliability of the covert channel:
 First, the sender being co-located with a receiver, and second, the resilience of the covert channel against noise.
 
 \paragraph{Co-location.}
-To measure the actual co-location probability, we used the preamble system as described in Section~\ref{sec:testsetup}.
+To measure the actual co-location probability, we use preamble system as described in Section~\ref{sec:testsetup}.
 Threads are unlikely to be relocated during the 4 seconds of a transmission,
 and the preamble is likely to be recognised if co-location is given (see noise resilience further down).
 We can conclude that the rate of recognised preambles is a good measurement for the actual co-location probability.
 
-In our tests, we found an average co-location probability of $88.7 \%$ in a Zen~3 architecture and $96 \%$ in Zen~4.
-This is consistent with the theoretical co-location probability of $93.3 \%$ calculated in Section~\ref{sec:co-location}.
+In our tests, we find an average co-location probability of $88.7~\%$ in a Zen~3 architecture and $96~\%$ in Zen~4.
+This is consistent with the theoretical co-location probability of $93.3~\%$ calculated in Section~\ref{sec:co-location}.
 
-When tested under stress with \texttt{stress --cpu 1}, we achieved an average co-location probability of $53.7 \%$.
-Most likely, the sender was co-located to a receiver more often than that,
-but the corresponding receiver was not able to detect the preamble due to the noise.
+When tested under stress with \texttt{stress --cpu 1}, we achieve an average co-location probability of $53.7~\%$.
+Most likely, the sender is co-located to a receiver more often than that,
+but the corresponding receiver is not able to detect the preamble due to the noise.
 When run simultaneously with \texttt{stress --cpu 2}, JavaSQUIP is not able to receive the preamble.
 As a result, co-location is never detected and transmission of data is not possible.
-
-\paragraph{Noise.}
-For measuring noise resistance, we only looked at those transmissions where the preamble was recognised.
-This resulted in an average transmission accuracy of $99.2 \%$ on Zen~3, and $99.3 \%$ on Zen~4.
-With \texttt{stress --cpu 1}, we observed an accuracy of $74 \%$.
-
-\ref{fig:contentiontest_stress} shows the effect of outside CPU stress on the measurement.
-Although the \texttt{stress} command creates more noise in the measurement, the overall contention levels go down (compare with \ref{fig:contentiontest}).
-This is because \texttt{stress} does not target a specific scheduler queue, but instead takes up CPU time with a varied set of instructions.
-The result is more relocation of threads (the sending thread is first co-located with receiver 13, later with receiver 7), and less contention.
 
 \begin{figure}
     \centering
@@ -880,11 +886,35 @@ The result is more relocation of threads (the sending thread is first co-located
     \label{fig:contentiontest_stress}
 \end{figure}
 
+\paragraph{Noise.}
+For measuring noise resistance, we only take into account those transmissions where the preamble was recognised.
+This results in an average transmission accuracy of $99.2~\%$ on Zen~3, and $99.3~\%$ on Zen~4.
+With \texttt{stress --cpu 1}, we observed an accuracy of $74~\%$.
+
+\ref{fig:contentiontest_stress} shows the effect of outside CPU stress on the measurement.
+Although the \texttt{stress} command creates more noise in the measurement, the overall contention levels go down (compare with \ref{fig:contentiontest}).
+This is because \texttt{stress} does not target a specific scheduler queue, but instead takes up CPU time with a varied set of instructions.
+The result is more relocation of threads (the sending thread is first co-located with receiver 13, later with receiver 7), and less contention.
+
+\paragraph{Effective transmission rate.}
+We define the \textit{effective transmission rate} as the rate of correctly received bits.
+For example, a transmission at 2000~bits/s with an error rate of 10~\%
+has an effective transmission rate of 1800~bits/s:
+\[2000~\text{bits/s}~*~(100~\%~-~10~\%)~=~1800~\text{bits/s}\]
+
+The effective transmission rate may differ from the usable bandwidth of the covert channel,
+depending on the transmission protocol and error correction.
+Nevertheless, it gives a good estimate to compare usable bandwidth between different covert channels.
+
+For JavaSQUIP, we take into account both the co-location probability and the transmission accuracy.
+By multiplying these values, we calculate an effective transmission rate of 880~bits/s on Zen~3:
+\[1000~\text{bits/s} * 88.7~\% * 99.2~\% \approx 880~\text{bits/s}\]
+The effective transmission rate on Zen~4 is 986~bits/s:
+\[1000~\text{bits/s} * 93.3~\% * 99.3~\% \approx 986~\text{bits/s}\]
+
 %--- COMPARISON ----------------------------------------------------------------
-\pagebreak
 \chapter{Comparison to other browser covert channels}
 \label{ch:comparison}
-% todo compare including transmission errors
 We have shown that JavaSQUIP is a fast and robust cross-instance covert channel for modern browsers.
 To further illustrate the power of JavaSQUIP,
 we will now compare its performance to similar modern browser-based covert channels.
@@ -924,17 +954,18 @@ The following ways of sharing a renderer process have been found:
 \end{itemize}
 
 Having one of these is possible, though it does limit the applicability of this covert channel.
-The authors of the paper also present a version of the covert channel that works without a shared renderer process,
+The authors of the paper also presented a version of the covert channel that works without a shared renderer process,
 at the cost of a significant decrease in transmission rate.
 
-Vila et al. propose a covert channel where the receiver continually checks the delay of an event handler
+Vila et al. proposed a covert channel where the receiver continually checks the delay of an event handler
 that is triggered by a shared event loop.
-With a shared renderer process, they achieve a transmission speed of \textbf{200 bits/s}.
-Their solution without a shared renderer process runs at a transmission speed of only \textbf{5 bits/s}.
+With a shared renderer process, they achieved a transmission speed of \textbf{200 bits/s}.
+Their solution without a shared renderer process ran at a transmission speed of only \textbf{5 bits/s}.
+Vila et al. did not discuss the error rate of transmissions in their paper.
 
 \section{Hardware Interrupts}
 In their paper on \textit{Practical Keystroke Timing Attacks in Sandboxed JavaScript}~\cite{lipp2017practical},
-Lipp et al. explore a side channel based on hardware interrupts.
+Lipp et al. explored a side channel based on hardware interrupts.
 To get information about a hardware interrupt being triggered,
 a script continually requests and logs the time increase of \texttt{performance.now()}~\cite{performancenow}.
 If this script is preempted by a hardware interrupt (e.g. for a keystroke),
@@ -951,6 +982,7 @@ by continually looking up the value of \texttt{performance.now()}.
 This hardware interrupt-based covert channel has no notable limitations:
 It works in a cross-browser setting on a wide range of devices and processors.
 With time slices of 40ms length, the resulting transmission speed is \textbf{25 bits/s}.
+Lipp et al. did not share the error rate of their covert channel.
 
 \section{Port Contention}
 The principle of port contention is the most similar to JavaSQUIP's scheduler queue contention.
@@ -959,7 +991,7 @@ Whenever the sender issues an instruction on the same port, the receiver's instr
 thus delaying the measurement loop.
 
 In \textit{Port Contention Goes Portable}~\cite{Rokicki2022webport},
-Rokicki et al. showcase a feasible application of port contention in a browser-based covert channel.
+Rokicki et al. showcased a feasible application of port contention in a browser-based covert channel.
 As opposed to the 1-sender multi-receiver approach of JavaSQUIP (see Section~\ref{sec:general-architecture} and Section~\ref{sec:co-location}),
 their solution features 1 receiver and multiple senders.
 The measurement loop of the receiver was implemented in \textit{WebAssembly} to easily issue a particular instruction.
@@ -969,26 +1001,52 @@ The sender was implemented as a native program running unprivileged code.
 This still gave the researchers the opportunity to bind each thread to a different core,
 ensuring that one of them would be co-located with the receiver.
 
-Rokicki et al. discuss the possibility of altering their covert channel to be fully within two browser instances.
-They propose a similar solution to the problem of co-location as the one we have implemented for JavaSQUIP.
-On this basis, they believably argue that this fully web-based attack would have the same transaction speed as the version
+Rokicki et al. discussed the possibility of altering their covert channel to be fully within two browser instances.
+They proposed a similar solution to the problem of co-location as the one we have implemented for JavaSQUIP.
+On this basis, they believably argued that this fully web-based attack would have the same transaction speed as the version
 with a native sender at \textbf{200 bits/s}.
+They reported a packet loss rate of 5.5~\% and an error rate of 1~\%.
+The resulting effective transmission rate is \textbf{187 bits/s}:
+\[200~\text{bits/s} * (100~\% - 5.5~\% - 1~\%) = 187~\text{bits/s}\]
 
 \section{Feasibility of JavaSQUIP}
-\begin{figure}
+
+%\begin{figure}
+%\centering
+%\includegraphics[width=0.8\textwidth]{figures/speedcomparison}
+%\caption{A comparison of transmission speeds between browser-based covert channels.}
+%\label{fig:speedcomparison}
+%\end{figure}
+
+\begin{table}[t]
 \centering
-\includegraphics[width=0.8\textwidth]{figures/speedcomparison}
+\begin{tabular}{ |l|r|r| }
+\hline
+\textbf{Covert channel} & \textbf{theoretical speed} & \textbf{effective speed} \\
+\Xhline{2pt}
+Event Loops (shared renderer) & 200 bits/s & ? \\
+\hline
+Event Loops & 5 bits/s & ? \\
+\hline
+Hardware Interrupts & 25 bits/s & ? \\
+\hline
+Port Contention & 200 bits/s & 187 bits/s \\
+\hline
+JavaSQUIP(Zen 3) & 1000 bits/s & 880 bits/s\\
+\hline
+JavaSQUIP(Zen 4) & 1000 bits/s & 986 bits/s\\
+\hline
+\end{tabular}
 
 \caption{A comparison of transmission speeds between browser-based covert channels.}
-\label{fig:speedcomparison}
-\end{figure}
-%todo continue here, replace with table
+\label{tab:speedcomparison}
+\end{table}
 
 \paragraph{Affected CPUs.}
 JavaSQUIP exploits a vulnerability in the split-scheduler design of AMD's Zen~2, Zen~3 and Zen~4 architectures.
 This means that JavaSQUIP only works on clients running on a CPU with one of these architectures.
 This limits the attack surface significantly, though the number of affected computers is still significant.
-As of Q3 of 2024, AMD holds a market share of around $33 \%$ in CPUs~\cite{amdmarket}.
+As of Q3 of 2024, AMD holds a market share of around $33~\%$ in CPUs~\cite{amdmarket}.
 Most of these CPUs run under the Zen~2, Zen~3 and Zen~4 architecture,
 meaning that large portion of current computers is susceptible to this attack.
 
@@ -1007,15 +1065,16 @@ with JavaSQUIP.
 
 \paragraph{Speed.}
 JavaSQUIP transmits data at a speed that is currently unmatched by any covert channel in a browser with up-to-date security settings.
-At \textbf{1000 bits/s}, JavaSQUIP surpasses all of the covert channels mentioned in this chapter at least by a factor of 5.
+Its theoretical transmission capacity is \textbf{1000 bits/s}.
+We observed an effective transmission speed of \textbf{880 bits/s} and \textbf{986 bits/s} for Zen~3 and Zen~4 respectively.
 This is enough bandwidth to support a live transmission of all user inputs, or to transmit a short audio recording within minutes.
+JavaSQUIP's effective transmission speed surpasses the theoretical speed of all other covert channels mentioned in this chapter at least by a factor of 4.
 
 %--- CONCLUSION ----------------------------------------------------------------
-\pagebreak
 \chapter{Discussion of Countermeasures}
 \label{ch:countermeasures}
 
-The preceding chapters have proven that JavaSQUIP is a powerful covert channel.
+The preceding chapters have shown that JavaSQUIP is a powerful covert channel.
 We want to discuss several ways to impede or prevent the usage of this vulnerability for nefarious purposes.
 First, we will discuss possibilites to alter the three features needed to implement JavaSQUIP:
 \textit{timing functions}, \textit{multithreading}, and \textit{low-level operations}.
@@ -1031,6 +1090,8 @@ On the other hand, going below 1 ms-accuracy would make the feature too weak.
 Many legitimate programs need this accuracy in timing measurements,
 for example for performance assessments of a website.
 
+Even if the resolution of \texttt{Date.now()} was reduced,
+the covert channel would still be able to synchronize clocks between sender and receiver.
 Thus, there is no feasible way to counteract the JavaSQUIP attack by decreasing timer accuracy.
 
 \section{Multithreading}
@@ -1073,26 +1134,27 @@ Consequently, there is currently no way to prevent a website from targeting a sc
 Because JavaSQUIP depends on co-location of the sender and one of the receivers,
 preventing co-location would present a way to make the covert channel impossible.
 The simplest way would be to disable simultaneous multithreading,
-though few users will accept this because of the performance loss of about $25 \%$~\cite{Phoronix2018HT, Cutress2020SMT}).
+though few users will accept this because of the performance loss of about $25~\%$~\cite{Phoronix2018HT, Cutress2020SMT}).
 
-We propose a process-based separation of physical CPU cores.
+Process-based separation of physical CPU cores also works to mitigate the vulnerability.
 This approach still makes use of SMT, but prevents threads of different processes to be co-located.
 This way, multi-threaded programs (and in extension websites) can still benefit from the technology,
 while SMT-based side channels are fundamentally prevented.
 SMT-COP~\cite{townley2019smt} expands on this idea.
-The drawback is that this would have to be implemented at the scheduler level,
-requiring an operating system-level update.
+This would have to be implemented at the scheduler level, requiring an operating system-level update.
+Similar to the security update to mitigate Spectre~\cite{spKocherHFGGHHLM019},
+this update would have a negative impact on the computer's overall performance.
+Implementing SMT-COP results in a performance loss of 4~\% to 10~\%, depending on the workload.
 
 %--- CONCLUSION ----------------------------------------------------------------
-\pagebreak
 \chapter{Conclusion}
 \label{ch:conclusion}
 In this thesis, we ported the SQUIP~\cite{squip} attack to a JavaScript context, thus creating the JavaSQUIP covert channel.
-JavaSQUIP has achieved a transmission rate of 1000 bits/s, proving an advantage in performance over
+JavaSQUIP has achieved a transmission rate of 1000 bits/s, showing an advantage in performance over
 all other current JavaScript-based covert channels~\cite{vila2017loophole, lipp2017practical},
 in particular over attacking single-scheduler based architectures~\cite{Rokicki2022webport}.
 
-Additionally, we proved a co-location rate of $88.7 \%$/$96 \%$ with a transmission accuracy of $99.2 \%$/$99.3 \%$ (Zen~3/Zen~4).
+Additionally, we observed a co-location rate of $88.7~\%$/$96~\%$ with a transmission accuracy of $99.2~\%$/$99.3~\%$ (Zen~3/Zen~4).
 This shows that architectures with multiple scheduler queues present a bigger attack surface than their single-scheduler counterparts.
 
 JavaSQUIP breaks the sandboxing model of a web browser context.
@@ -1105,7 +1167,8 @@ JavaSQUIP mostly uses JavaScript features that have already been restricted to i
 mitigating microarchitectural attacks in a browser setting proves to be increasingly hard as CPUs grow more and more complex.
 We have shown that there are few options for counteracting JavaSQUIP and similar attacks.
 All of the solutions proposed in this paper have requirements that make them unlikely to be implemented.
-Thus, we can expect JavaSQUIP to remain a threat for the near future.
+Thus, we can expect JavaSQUIP -- along with many other browser-based covert channels --
+to remain viable for the near future.
 
 %--- BIBLIOGRAPHY --------------------------------------------------------------
 \pagebreak
