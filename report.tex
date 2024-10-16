@@ -218,7 +218,6 @@ As branches can make loading unpredictable and loading the wrong instruction is 
 Taking this one step further, the predicted path may also be executed before the condition for the branch has been computed.
 This is called \textit{speculative execution}~\cite{AMD2020OptimizationEPYC7002}.
 
-%todo space between number and unit
 \paragraph{Decode.}
 Modern CISC CPUs divide complex instructions into their parts when possible;
 these parts are called \textit{micro-ops} (\textmu ops)~\cite{AMD2020OptimizationEPYC7002}.
@@ -338,7 +337,7 @@ However, its advantage is a higher transmission rate compared to port contention
 Because scheduler queue contention stalls the whole CPU, as compared to port contention stalling just one execution unit,
 a comparatively bigger increase in execution time is achieved.
 SQUIP produces stalls with instructions on a different execution unit than the unit where execution time is measured (see Figure~\ref{fig:amdzen2sqc}).
-The measured execution unit either sees low load -- the measurement instructions, or a complete stall -- scheduler queue contention,
+The measured execution unit either sees low load (the measurement instructions), or a complete stall (scheduler queue contention),
 as illustrated in Figure~\ref{fig:amdzen2normalvssqc}.
 %Additionally, SQUIP creates very few instructions on the execution unit where execution times are measured,
 %since stalls are produced on another unit.
@@ -351,7 +350,7 @@ Because of this advantage, JavaSQUIP aims to port this vulnerability to a browse
 \section{JavaScript in a browser environment}
 \label{sec:javascriptenv}
 JavaScript~\cite{javascript} is the main scripting language for running code in a website.
-It is an interpreted language, which means that the browser executes code without compilation into a binary format.
+It is an interpreted language, which means that the browser generally executes code without compilation into a binary format.
 JavaScript developers benefit from writing high-level platform-independent code,
 while the interpreter takes care of executing it on the user's machine.
 
@@ -381,11 +380,11 @@ All three of these are needed to mount the SQUIP attack.
 \subsection{Timing functions}\label{subsec:timingjs}
 There are two contenders for timing measurements in JavaScript: \texttt{Date.now()}~\cite{datenow} and \texttt{performance.now()}~\cite{performancenow}.
 
-The \texttt{Date.now()}~\cite{datenow} function gives a synchronised Unix epoch timestamp with millisecond accuracy.
+\texttt{Date.now()}~\cite{datenow} gives a synchronised Unix epoch timestamp with millisecond accuracy.
 The Unix epoch time is essentially the time elapsed since January 1, 1970 and is the same for all processes on a computer.
 This makes \texttt{Date.now()} a cross-instance synchronised timestamp.
 
-\texttt{performance.now()}~\cite{performancenow} measures the time elapsed since the \textit{time origin} of the current context.
+The \texttt{performance.now()}~\cite{performancenow} function measures the time elapsed since the \textit{time origin} of the current context.
 This means that \texttt{performance.now()} gives different values between browser instances, and even between a main thread and its worker threads.
 Timing information from \texttt{performance.now()} can still be synchronised;
 The \textit{time origin} of the context is given by the \texttt{performance.timeOrigin()}~\cite{performancetimeorigin} property.
@@ -399,7 +398,8 @@ Consequently, both \texttt{Date.now()} and \texttt{performance.now()} give a syn
 \subsection{Multithreading}\label{subsec:multithreading}
 JavaScript does not support low-level control over threading, but the \texttt{Web Workers} API~\cite{webworkers} allows the user to create workers running in a separate thread.
 An instantiated worker runs a predefined script.
-The main thread can interface with the worker by calling the \texttt{Worker.postMessage()} function and via a \texttt{SharedArrayBuffer}~\cite{sharedarraybuffer}.
+The main thread can interface with the worker by calling the \texttt{Worker.postMessage()} function.
+Data can be shared across workers using a \texttt{SharedArrayBuffer}~\cite{sharedarraybuffer}.
 There is no support for selecting a core on which a worker is run on, presenting a challenge to co-locate with the sender.
 
 Creating a \texttt{SharedArrayBuffer} is restricted in two ways: the browser window needs to be SSL-encrypted, and it needs to restrict some Cross-Origin requests.
@@ -418,8 +418,8 @@ Rather, \texttt{Math.imul(a, b)}~\cite{mathimul} gives the user a lower-level co
 It interprets the parameters as 32~bit integers and multiplies them as such, resulting in an \texttt{imul} instruction on the CPU.
 
 The functions used for creating specific instructions are run repeatedly during data transmission.
-This ensures that they are converted into binary code by the JIT compiler (see Section~\ref{sec:javascriptenv}
-We verify which instructions were generated by running code through ION -- the compiler used in Firefox --
+This ensures that they are converted into binary code by the JIT compiler (see Section~\ref{sec:javascriptenv}).
+We verify which instructions were generated by running code through IonMonkey -- the optimizing compiler used in Firefox --
 using Firefox' js-shell.
 
 \begin{lstlisting}[float,caption={A test function for the \texttt{imul} instruction},label={lst:testimul},language=JavaScript]
@@ -448,8 +448,6 @@ return a;
 0000109C  48 3b c1                              cmp %rcx, %rax
 0000109F  0f 86 01 00 00 00                     jbe 0x00000000000010A6
 000010A5  cc                                    int3
-000010A6  48 b9 00 00 00 00 00 80 f8 ff         mov $-0x7800000000000, %rcx
-000010B0  48 0b c8                              or %rax, %rcx
 \end{lstlisting}
 
 \begin{lstlisting}[float,caption={A test function for the \texttt{sqrt} instruction},label={lst:testsqrt},language=JavaScript]
@@ -476,8 +474,6 @@ return a;
 0000109A  f2 0f 51 c0                           sqrtsd %xmm0, %xmm0
 0000109E  f2 0f 51 c0                           sqrtsd %xmm0, %xmm0
 000010A2  c4 e1 f9 7e c1                        vmovq %xmm0, %rcx
-000010A7  49 bb ff ff ff ff 00 00 f8 ff         mov $-0x7FFFF00000001, %r11
-000010B1  4c 3b d9                              cmp %rcx, %r11
 \end{lstlisting}
 
 A test function in Listing~\ref{lst:testimul} contains multiple \texttt{Math.imul()} calls.
@@ -491,7 +487,7 @@ As described in Section~\ref{sec:browsersecurity}, there are some challenges to 
 This chapter explains how we work around these challenges to implement the JavaSQUIP covert channel.
 
 \section{General architecture}
-\label{sec:general-architecture}x`
+\label{sec:general-architecture}
 We build a showcase for JavaSQUIP consisting of two web pages: one receiver and one sender.
 The aim is to build a showcase that, while showing the capabilities of the covert channel,
 should reflect as realistic a scenario as possible to also prove the feasibility of a side channel attack.
@@ -506,7 +502,7 @@ From here, the received data can be sent back to the attacker.
 
 The sender in the showcase corresponds to the victim in a side channel scenario.
 Since a victim does not cooperate in an attack, the sender was kept as simple as possible.
-It consists of one thread, sending one bit per timeslice (see \ref{sec:accurate-timing}) via issuing \texttt{Math.imul()} instructions or not.
+It consists of one thread, sending one bit per timeslice (see Section~\ref{sec:accurate-timing}) via issuing \texttt{Math.imul()} instructions or not.
 
 The receiver represents the attacker.
 The assumption is that an attacker can execute arbitrary scripts, for example as an interactive advertisement on a website.
@@ -518,15 +514,15 @@ Details on the implementation are described in the following chapters.
 JavaSQUIP needs two kinds of timing in order to work properly:
 \begin{itemize}
     \item a cross-process syncronized clock to determine the start of bit transmissions:\\
-    resolution of ${f_{\text{transmission}}}^{-1} \approx$ 1ms
+    resolution of ${f_{\text{transmission}}}^{-1} \approx$ 1~ms
     \item a fine-grained measurement to measure port contention:\\
-    resolution of 100 CPU cycles $\approx$ 25ns
+    resolution of 100 CPU cycles $\approx$ 25~ns
 \end{itemize}
 
-For the synchronised clock, we can use \texttt{Date.now()}~\cite{datenow}, which has a 1ms accuracy.
-This allows us to partition the duration of the transmission into 1ms \textit{timeslices}.
+For the synchronised clock, we can use \texttt{Date.now()}~\cite{datenow}, which has a 1~ms accuracy.
+This allows us to partition the duration of the transmission into 1~ms \textit{timeslices}.
 During one timeslice, a single bit can be transmitted by the existence or absence of scheduler queue contention.
-The alignment of bytes is solved by starting the transmission on a multiple of 8 timeslices since the start of the epoch (see \ref{subsec:timingjs}).
+The alignment of bytes is solved by starting the transmission on a multiple of 8 timeslices since the start of the epoch (see Section~\ref{subsec:timingjs}).
 Synchronising with \texttt{Date.now()}~\cite{datenow} works, but only for transmissions of up to 1000 bits/s,
 since there is no more precise timestamp in JavaScript which is synchronised across browser instances.
 
@@ -535,7 +531,7 @@ since there is no more precise timestamp in JavaScript which is synchronised acr
 %The actual implementation is not within the scope of this thesis.
 
 The receiver also needs a way to measure the small variations in timing whenever a scheduler queue gets blocked.
-Since no timing function in JavaScript gives a better accuracy than 0.1ms, we need to provide our own timing.
+Since no timing function in JavaScript gives a better accuracy than 0.1~ms, we need to provide our own timing.
 
 
 \begin{lstlisting}[float,caption={The code for the counting thread},label={lst:countingthread}]
@@ -553,7 +549,7 @@ self.onmessage = function(event) {
 \end{lstlisting}
 
 We solve this with a counting worker, which continually increases one variable in the \texttt{SharedArrayBuffer}.
-As explained in section \ref{subsec:multithreading}, the other receiver workers can then access this counter and use it to measure execution times with adequate accuracy.
+As explained in Section~\ref{subsec:multithreading}, the other receiver workers can then access this counter and use it to measure execution times with adequate accuracy.
 Listing~\ref{lst:countingthread} shows the counting thread's code.
 After initialisation, it continually increases the counting variable and stores it to the \texttt{SharedArrayBuffer}.
 The paper on \textit{Fantastic Timers}~\cite{Schwarz2017Timers} explains the concept in more depth.
@@ -570,12 +566,12 @@ The paper on \textit{Fantastic Timers}~\cite{Schwarz2017Timers} explains the con
 
 \end{figure}
 
-JavaScript does not provide the functionality of binding to a particular core,
-the receiver tries to force co-location by crowding the CPU.
+JavaScript does not provide the functionality of binding to a particular core.
+The receiver tries to force co-location by crowding the CPU.
 The receiver has one thread running on each virtual core,
 leaving just one virtual core open for the sender's thread to occupy.
 To do this the receiver creates as many receiving workers as the number of virtual cores in the machine, minus two:
-one for the counting thread (see \ref{sec:accurate-timing}), and one for the sending thread.
+one for the counting thread (see Section~\ref{sec:accurate-timing}), and one for the sending thread.
 In our experiments, we use an \textit{AMD Ryzen 7 5800X} as representative for Zen~3 and an \textit{AMD Ryzen 7 7700X} as representative for Zen~4.
 Both are 8-core CPUs, so the experiments are run with $8 \times 2 - 2 = 14$ receiver workers.
 Since every thread does continuous work, the operating system will most likely assign each thread to a unique virtual core.
@@ -589,7 +585,7 @@ Figure~\ref{fig:colocation} illustrates one possible configuration of threads on
 
 To figure out which receiver is the one co-located with the sender,
 we need to take advantage of some characteristic of the transmission.
-With some optimisations of the receiver workers -- described closer in \ref{sec:reducecontention} --
+With some optimisations of the receiver workers -- described closer in Section~\ref{sec:reducecontention} --
 we are able to get the contention of two co-located receiver workers very low.
 The counting thread does not cause much contention either.
 This means that if a \texttt{1} is sent, the sender will cause the highest scheduler queue contention level -- i.e. the longest execution time --
@@ -695,18 +691,19 @@ It is an atomic operation, so thread safety and correctness of the value are ens
 
 The codependence of the \texttt{imul} operations ensures that they have to be executed one after the other, in order.
 It is ensured simply by using the result of one operation as the input for the next.
-The input for the \texttt{imul} operations is calculated in lines $15$ and $16$ of Listing~\ref{lst:sendzeroone} based on an input variable \texttt{dummy}.
+The input for the \texttt{imul} operations is calculated in lines $15$ and $16$ of Listing~\ref{lst:sendzeroone} based on a global variable \texttt{dummy}.
 This prevents the JIT-compiler from pre-computing the result and optimizing away the \texttt{imul} calls.
-
 
 Listing~\ref{lst:sendzeroone} shows two functions of the sending process.
 The functions are for sending a zero or a one respectively, in a given time frame.
 The parameter \texttt{until} gives the end of the timeslice to send a bit.
+The function \texttt{send\_one()} creates contention with \texttt{imul} instructions,
+while \texttt{send\_zero()} only waits until the timeslice is over.
 
 \section{Detecting scheduler queue contention}
 \label{sec:detect-sqc}
-The receiving process needs to detect whether the sender has sent a \texttt{1} or a \texttt{0}.
-This is equivalent to detecting scheduler queue contention.
+The receiving process needs to detect whether the sender has sent a \texttt{1} or a \texttt{0},
+which is equivalent to detecting scheduler queue contention.
 This is implemented by issuing several \texttt{imul} instructions,
 and measuring the delay with the help of a separate counting thread.
 
@@ -726,7 +723,7 @@ In this case, the \texttt{sqrt} instructions are also stalled, further increasin
 In the case that no stall occurs, the additional \texttt{sqrt} instructions do not hinder the program flow,
 since they target a different scheduler queue.
 
-In line \texttt{27}, that we do not check the actual difference between \texttt{start\_time} and \texttt{end\_time},
+In line \texttt{27}, we do not check the actual difference between \texttt{start\_time} and \texttt{end\_time},
 but rather only return a \texttt{1} if the two are different, and a \texttt{0} otherwise.
 Since we can assume that a difference in \texttt{start\_time} and \texttt{end\_time} is an indicator of scheduler queue contention,
 this gives a good measurement;
@@ -785,7 +782,7 @@ it needs to be big enough to cause a queue stall and a spike in execution time,
 yet it needs to be as small as possible to minimise chance of a stall bleeding into the following timeslice.
 
 To tune the number of \texttt{imul} instructions, a bleed-over test is constructed.
-It test consists of a string of alternating \texttt{1}s and \texttt{0}s, so contrasts between different bits could be easily observed.
+The test consists of a string of alternating \texttt{1}s and \texttt{0}s, so contrasts between different bits could be easily observed.
 The amount of \texttt{imul} instructions is tuned by successively reducing the number and running a test.
 The point where no spike in execution time is registered any more is set as the lower limit for the amount of \texttt{imul} instructions.
 Figure~\ref{fig:contentiontest} shows the final tuned system;
@@ -803,7 +800,7 @@ See Section~\ref{sec:detect-sqc} for a detailed explanation of the stall detecti
 
 To improve the signal-to-noise ratio, the receivers should create as little contention as possible themselves.
 This is helpful in the transmission, as it reduces the contention for two co-located receivers,
-maximizing the contrast to the receiver that is co-located with the sender (see \ref{sec:co-location})
+maximizing the contrast to the receiver that is co-located with the sender (see Section~\ref{sec:co-location})
 Three optimisations are employed in the receiver worker: adjusting the \textit{number of stall instructions},
 using \textit{buffer instructions}, and a \textit{delay loop}.
 
@@ -836,7 +833,7 @@ while(k < 1000|0) {
 
 A delay loop is added after each measurement to clearly separate measurements.
 To this effect, we fill the scheduler queue with other operations for a short time between measurements.
-Since no normal delay function gives a better accuracy than 1ms, a busy-waiting loop is used.
+Since no normal delay function gives a better accuracy than 1~ms, a busy-waiting loop is used.
 Listing~\ref{lst:delayloop} shows the delay loop that is executed after each measurement.
 
 
@@ -878,8 +875,8 @@ This results in a transmission time of $\frac{500 \times 8}{1000} = 4$ seconds.
 \section{Speed}
 The sender and receiver need to know the desired transmission speed beforehand to match up their timeslices.
 This means that the transmission speed is a fixed value and needs no further calculation.
-Due to the reduced resolution of the Date.now() timer used for the time slices (see Section~\ref{sec:accurate-timing}),
-our best achievable speed is 1000bits/s.
+Due to the reduced resolution of the \texttt{Date.now()} timer used for the time slices (see Section~\ref{sec:accurate-timing}),
+our best achievable speed is 1000~bits/s.
 
 There is, however, still some overhead for the preamble (see Section~\ref{sec:testsetup}).
 It is a fixed size of 10 bytes regardless of the message,
@@ -890,7 +887,7 @@ There are two aspects that affect the reliability of the covert channel:
 First, the sender being co-located with a receiver, and second, the resilience of the covert channel against noise.
 
 \paragraph{Co-location.}
-To measure the actual co-location probability, we use preamble system as described in Section~\ref{sec:testsetup}.
+To measure the actual co-location probability, we use the preamble system as described in Section~\ref{sec:testsetup}.
 Threads are unlikely to be relocated during the 4 seconds of a transmission,
 and the preamble is likely to be recognised if co-location is given (see noise resilience further down).
 We can conclude that the rate of recognised preambles is a good measurement for the actual co-location probability.
@@ -917,8 +914,8 @@ For measuring noise resistance, we only take into account those transmissions wh
 This results in an average transmission accuracy of $99.2~\%$ on Zen~3, and $99.3~\%$ on Zen~4.
 With \texttt{stress --cpu 1}, we observed an accuracy of $74~\%$.
 
-\ref{fig:contentiontest_stress} shows the effect of outside CPU stress on the measurement.
-Although the \texttt{stress} command creates more noise in the measurement, the overall contention levels go down (compare with \ref{fig:contentiontest}).
+Figure~\ref{fig:contentiontest_stress} shows the effect of outside CPU stress on the measurement.
+Although the \texttt{stress} command creates more noise in the measurement, the overall contention levels go down (compare with Figure~\ref{fig:contentiontest}).
 This is because \texttt{stress} does not target a specific scheduler queue, but instead takes up CPU time with a varied set of instructions.
 The result is more relocation of threads (the sending thread is first co-located with receiver 13, later with receiver 7), and less contention.
 
@@ -946,15 +943,16 @@ To further illustrate the power of JavaSQUIP,
 we will now compare its performance to similar modern browser-based covert channels.
 For a fair comparison, they need to exhibit data transfer between browser instances,
 with all the current security mitigations in place (see Section~\ref{sec:browsersecurity}).
-The selected covert channels are the following:
 
+\pagebreak
+The selected covert channels are the following:
 \begin{itemize}
     \item \textit{Event Loops}~\cite{vila2017loophole}
     \item \textit{Hardware Interrupts}~\cite{lipp2017practical}
     \item \textit{Port Contention}~\cite{Rokicki2022webport}
 \end{itemize}
 
-As browser-based timing covert channels, they share a few common traits.
+As browser-based timing covert channels, they share a few traits.
 All of them need a way to create contention and a way to measure it.
 The common solution is with a sender that either idles or performs an action,
 while the receiver continually monitors the execution time of a loop that is sensitive to this action.
@@ -963,7 +961,7 @@ while the receiver continually monitors the execution time of a loop that is sen
 The \textit{Loophole} Timing Attack~\cite{vila2017loophole} uses shared event loops to get timing information.
 An Event loop is a piece of code that continually checks for an event condition
 and starts registered event handlers if the event has occurred.
-An example would be an event loop that checked for a \textit{Space} key press,
+An example would be an event loop that checks for a \textit{Space} key press,
 which starts an event handler to start a video on the website.
 
 The version of the covert channel attack we are interested in relies on two pages sharing the same \textit{renderer process}.
@@ -1007,7 +1005,7 @@ by continually looking up the value of \texttt{performance.now()}.
 
 This hardware interrupt-based covert channel has no notable limitations:
 It works in a cross-browser setting on a wide range of devices and processors.
-With time slices of 40ms length, the resulting transmission speed is \textbf{25 bits/s}.
+With time slices of 40~ms length, the resulting transmission speed is \textbf{25 bits/s}.
 Lipp et al. did not share the error rate of their covert channel.
 
 \section{Port Contention}
@@ -1020,11 +1018,11 @@ In \textit{Port Contention Goes Portable}~\cite{Rokicki2022webport},
 Rokicki et al. showcased a feasible application of port contention in a browser-based covert channel.
 As opposed to the 1-sender multi-receiver approach of JavaSQUIP (see Section~\ref{sec:general-architecture} and Section~\ref{sec:co-location}),
 their solution features 1 receiver and multiple senders.
-The measurement loop of the receiver was implemented in \textit{WebAssembly} to easily issue a particular instruction.
+The measurement loop of the receiver was implemented in \textit{WebAssembly} to directly issue a particular instruction.
 Since the single receiver is sandboxed in JavaScript, it can neither bind to a physical core, nor know which core it is on.
 Consequently, the sender creates as many threads as there are cores on the machine.
 The sender was implemented as a native program running unprivileged code.
-This still gave the researchers the opportunity to bind each thread to a different core,
+This gave the researchers the opportunity to bind each thread to a different core,
 ensuring that one of them would be co-located with the receiver.
 
 Rokicki et al. discussed the possibility of altering their covert channel to be fully within two browser instances.
@@ -1050,11 +1048,11 @@ The resulting effective transmission rate is \textbf{187 bits/s}:
 \hline
 \textbf{Covert channel} & \textbf{theoretical speed} & \textbf{effective speed} \\
 \Xhline{2pt}
-Event Loops (shared renderer) & 200 bits/s & ? \\
+Event Loops (shared renderer) & 200 bits/s & \textit{n.a.} \\
 \hline
-Event Loops & 5 bits/s & ? \\
+Event Loops & 5 bits/s & \textit{n.a.} \\
 \hline
-Hardware Interrupts & 25 bits/s & ? \\
+Hardware Interrupts & 25 bits/s & \textit{n.a.} \\
 \hline
 Port Contention & 200 bits/s & 187 bits/s \\
 \hline
@@ -1092,7 +1090,7 @@ with JavaSQUIP.
 \paragraph{Speed.}
 JavaSQUIP transmits data at a speed that is currently unmatched by any covert channel in a browser with up-to-date security settings.
 Its theoretical transmission capacity is \textbf{1000 bits/s}.
-We observed an effective transmission speed of \textbf{880 bits/s} and \textbf{986 bits/s} for Zen~3 and Zen~4 respectively.
+We observe an effective transmission speed of \textbf{880 bits/s} and \textbf{986 bits/s} for Zen~3 and Zen~4 respectively.
 This is enough bandwidth to support a live transmission of all user inputs, or to transmit a short audio recording within minutes.
 JavaSQUIP's effective transmission speed surpasses the theoretical speed of all other covert channels mentioned in this chapter at least by a factor of 4.
 
@@ -1112,7 +1110,7 @@ The counting thread is based on multithreading, which will be discussed in the n
 
 The resolution of \texttt{Date.now()} directly affects the available transmission speed.
 The usefulness of JavaSQUIP can be easily decreased by decreasing the time resolution.
-On the other hand, going below 1 ms-accuracy would make the feature too weak.
+On the other hand, going below 1 ms accuracy would make the feature too weak.
 Many legitimate programs need this accuracy in timing measurements,
 for example for performance assessments of a website.
 
@@ -1147,12 +1145,12 @@ Browser providers could disable this API call without affecting too many website
 but there are simple workarounds for this.
 
 WebAssembly~\cite{webassembly} is currently supported in all major browser engines.
-It promises to provide web developers with faster execution times by circumventing JavaScript's just-in-time compiler.
+It promises to provide web developers with faster execution times by circumventing JavaScript's interpreter and just-in-time compiler.
 Pre-compiled WebAssembly binaries can be executed directly in the browser.
 
 JavaSQUIP could easily be implemented in WebAssembly, using its fine-grained control over instructions to
 target a scheduler queue.
-WebAssembly is currently a rising technology -- more and more websites are implementing it~\cite{musch2019new}.
+WebAssembly is a rising technology -- more and more websites are implementing it~\cite{musch2019new}.
 It is unlikely that browser developers are going to disable support for it.
 Consequently, there is currently no way to prevent a website from targeting a scheduler queue.
 
