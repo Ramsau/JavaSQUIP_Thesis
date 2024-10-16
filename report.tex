@@ -176,15 +176,15 @@ Since implementations of port contention-based side channels in a browser settin
 In this thesis, we contribute the following:
 \begin{itemize}
     \item We present JavaSQUIP, a browser-based covert channel based on the SQUIP~\cite{squip} attack.
-    \item We show that JavaSQUIP is reliable and faster than approaches based on CPU architectures with a single scheduler queue.
     \item We develop a framework for transmitting data between separate instances of a browser at speeds of up to 1000 bit/s.
+    \item We show that JavaSQUIP is reliable and faster than approaches based on CPU architectures with a single scheduler queue.
     \item We argue that JavaSQUIP relies on essential features of JavaScript, meaning the threat it poses cannot be easily mitigated.
 \end{itemize}
 
 \paragraph{Outline.}
 In Section~\ref{ch:background}, we provide relevant background information on scheduler queue contention,
 resulting in several challenges that we will have to overcome when implementing JavaSQUIP.
-Section~\ref{ch:implementation} shows how we dealt with these challenges.
+Section~\ref{ch:implementation} shows how we handle these challenges.
 Section~\ref{ch:optimisation} continues by explaining how we optimised JavaSQUIP for speed and reliability.
 We go into more detail on the mode and results of our evaluation of JavaSQUIP in Section~\ref{ch:evaluation}.
 In Section~\ref{ch:comparison}, we present comparable covert channels and compare them to JavaSQUIP.
@@ -199,14 +199,14 @@ We conclude with Section~\ref{ch:conclusion}, outlining potential use cases and 
 In this chapter, we go into detail on two aspects of CPU scheduling
 -- \textit{Out-Of-Order Execution} and \textit{Simultaneous Multithreading} --
 and how they have been exploited by prior work.
-Furthermore, we take a closer look into the browser features needed to implement these exploits in JavaScript.
+Furthermore, we take a closer look into the browser environment and which features are needed to implement these exploits in JavaScript.
 
 \section{Out-Of-Order Execution}
 \label{sec:outoforderexecution}
 For performance reasons, modern CPUs use efficiency features at almost every stage of an instruction's execution.
 One notable feature is \textit{Out-Of-Order Execution},
 where instructions are split up into smaller parts.
-These so-called \textit{\textmu ops} can be executed in a diffent order than the program order,
+These so-called \textit{\textmu ops} can be executed in a different order than the program order,
 enabling a more efficient utilisation of the CPU's resources.
 
 The following paragraphs describe the stages of an instruction in a CISC CPU,
@@ -218,7 +218,7 @@ As branches can make loading unpredictable and loading the wrong instruction is 
 Taking this one step further, the predicted path may also be executed before the condition for the branch has been computed.
 This is called \textit{speculative execution}~\cite{AMD2020OptimizationEPYC7002}.
 
-% TODO: Are there attacks against the decoder too?
+%todo space between number and unit
 \paragraph{Decode.}
 Modern CISC CPUs divide complex instructions into their parts when possible;
 these parts are called \textit{micro-ops} (\textmu ops)~\cite{AMD2020OptimizationEPYC7002}.
@@ -281,11 +281,11 @@ A selection of these attacks will be explained in the following chapter.
 
 \section{Prior attacks on the CPU pipeline }
 \label{sec:exploits}
-Many of the stages of an instruction's life cycle are exploitable;
-in the following, we will list some of the exploits that have already been found.
+Many of the stages of an instruction's life cycle are exploitable.
+In the following, we will list some of the exploits that have already been found.
 
 \paragraph{Speculative Execution.}
-Executing a path before the condition for the branch is known --
+Executing a path before the condition for the branch is known
 can be exploited, as was shown by Spectre~\cite{spKocherHFGGHHLM019}.
 
 First, the branch prediction unit is primed by repeatedly branching with the condition set to \textit{A}.
@@ -340,7 +340,7 @@ a comparatively bigger increase in execution time is achieved.
 SQUIP produces stalls with instructions on a different execution unit than the unit where execution time is measured (see Figure~\ref{fig:amdzen2sqc}).
 The measured execution unit either sees low load -- the measurement instructions, or a complete stall -- scheduler queue contention,
 as illustrated in Figure~\ref{fig:amdzen2normalvssqc}.
-%Additionally, SQUIP creates very few instuctions on the execution unit where execution times are measured,
+%Additionally, SQUIP creates very few instructions on the execution unit where execution times are measured,
 %since stalls are produced on another unit.
 %This means that the measured execution unit goes from low load to being stalled completely (see Figure~\ref{fig:amdzen2normalvssqc}).
 This increases the signal-to-noise ratio of the timing measurement,
@@ -368,9 +368,8 @@ The optimized binary is executed after assessing the truth of the assumptions, a
 
 \section{Browser security measures}
 \label{sec:browsersecurity}
-% todo these citations ugly
 Since the advent of many timing side and covert channels~\cite{noack2018exploiting, Rokicki2022webport, gruss2016rowhammer, 185126},
-browser developers have implemented many measures to mitigate the threat~\cite{shusterman2021prime, performancenow, performancenowchrome, schwarz2018javascript}.
+browser developers have implemented many different measures to mitigate the threat~\cite{shusterman2021prime, performancenow, performancenowchrome, schwarz2018javascript}.
 This has always meant striking a balance between security and efficiency.
 Because of this, many potential attack surfaces cannot be eliminated without unreasonable losses in performance and functionality,
 though some measures do slow down side and covert channels significantly.
@@ -392,7 +391,7 @@ Timing information from \texttt{performance.now()} can still be synchronised;
 The \textit{time origin} of the context is given by the \texttt{performance.timeOrigin()}~\cite{performancetimeorigin} property.
 This way, the timestamps from \texttt{performance.now()} can be globally synchronised.
 
-The accuracy of \texttt{performance.now()} has been heavily restricted by browser developers to counteract the threat of timing attacks.
+The accuracy of \texttt{performance.now()} has been restricted heavily by browser developers to counteract the threat of timing attacks.
 For example, in Firefox it has an accuracy of 1 ms, and in Chrome it measures with an accuracy of 0.1 ms~\cite{performancenow, performancenowchrome}.
 
 Consequently, both \texttt{Date.now()} and \texttt{performance.now()} give a synchronised timestamp with 1 ms accuracy, making them viable options for synchronisation.
@@ -400,15 +399,14 @@ Consequently, both \texttt{Date.now()} and \texttt{performance.now()} give a syn
 \subsection{Multithreading}\label{subsec:multithreading}
 JavaScript does not support low-level control over threading, but the \texttt{Web Workers} API~\cite{webworkers} allows the user to create workers running in a separate thread.
 An instantiated worker runs a predefined script.
-The main thread can interface with the worker via calls to the \texttt{Worker.postMessage()} function and via a \texttt{SharedArrayBuffer}~\cite{sharedarraybuffer}.
+The main thread can interface with the worker by calling the \texttt{Worker.postMessage()} function and via a \texttt{SharedArrayBuffer}~\cite{sharedarraybuffer}.
 There is no support for selecting a core on which a worker is run on, presenting a challenge to co-locate with the sender.
 
 Creating a \texttt{SharedArrayBuffer} is restricted in two ways: the browser window needs to be SSL-encrypted, and it needs to restrict some Cross-Origin requests.
 Nevertheless, this is not a problem for an attacker on any site that provides \texttt{https} and where all code comes from a single origin.
-With the help of free, easy-to-use ssl certificates such as certbot~\cite{certbot}, almost every website on the internet provides an SSL-encrypted connection.
+With the help of free, easy-to-use SSL certificates such as certbot~\cite{certbot}, almost every website on the internet provides an SSL-encrypted connection.
 This means that the requirements for a \texttt{SharedArrayBuffer} are likely to be met for any public website where a malicious actor would place their code.
 
-%todo mention jit compiler
 \subsection{Low-level operations in JavaScript}\label{subsec:lowleveljs}
 To create contention on one specific scheduler queue, we need a way to create a stream of equal and co-dependent instructions -- specifically the \texttt{imul} instruction.
 One way to achieve this in a browser context would be \textit{WebAssembly}~\cite{webassembly}.
@@ -418,10 +416,11 @@ JavaScript handles numbers as floating-point numbers by default.
 This means that a simple invocation of a multiplication like \texttt{a * b;} in JavaScript will not result in an \texttt{imul} instruction on the CPU.
 Rather, \texttt{Math.imul(a, b)}~\cite{mathimul} gives the user a lower-level command:
 It interprets the parameters as 32~bit integers and multiplies them as such, resulting in an \texttt{imul} instruction on the CPU.
-We verify which instructions were generated by running code through V8 -- the compiler used in Chrome --
-using the JavaScript explorer on godbolt.org~\cite{godbolt}.
-% todo but we use firefox/seamonkey
-% https://blog.mozilla.org/attack-and-defense/2020/09/15/inspecting-just-in-time-compiled-javascript/
+
+The functions used for creating specific instructions are run repeatedly during data transmission.
+This ensures that they are converted into binary code by the JIT compiler (see Section~\ref{sec:javascriptenv}
+We verify which instructions were generated by running code through ION -- the compiler used in Firefox --
+using Firefox' js-shell.
 
 \begin{lstlisting}[float,caption={A test function for the \texttt{imul} instruction},label={lst:testimul},language=JavaScript]
 function test(a) {
@@ -435,21 +434,22 @@ return a;
 \end{lstlisting}
 
 \begin{lstlisting}[float,caption={The compiled result of the \texttt{imul} test function},label={lst:compileimul}]
-0x6469d68040b8    78  0f80ba000000         jo 0x6469d6804178  <+0x138>
-0x6469d68040be    7e  8bc9                 movl rcx,rcx
-0x6469d68040c0    80  8bf9                 movl rdi,rcx
-0x6469d68040c2    82  0faff9               imull rdi,rcx
-0x6469d68040c5    85  8bcf                 movl rcx,rdi
-0x6469d68040c7    87  0fafcf               imull rcx,rdi
-0x6469d68040ca    8a  8bf9                 movl rdi,rcx
-0x6469d68040cc    8c  0faff9               imull rdi,rcx
-0x6469d68040cf    8f  8bcf                 movl rcx,rdi
-0x6469d68040d1    91  0fafcf               imull rcx,rdi
-0x6469d68040d4    94  8bf9                 movl rdi,rcx
-0x6469d68040d6    96  0faff9               imull rdi,rcx
-0x6469d68040d9    99  488bcf               REX.W movq rcx,rdi
-0x6469d68040dc    9c  03cf                 addl rcx,rdi
-0x6469d68040de    9e  0f8046000000         jo 0x6469d680412a  <+0xea>
+00001072  49 89 c3                              mov %rax, %r11
+00001075  49 c1 eb 2f                           shr $0x2F, %r11
+00001079  41 81 fb f1 ff 01 00                  cmp $0x1FFF1, %r11d
+00001080  0f 85 1a 03 00 00                     jnz 0x00000000000013A0
+00001086  8b c0                                 mov %eax, %eax
+00001088  0f af c0                              imul %eax, %eax
+0000108B  0f af c0                              imul %eax, %eax
+0000108E  0f af c0                              imul %eax, %eax
+00001091  0f af c0                              imul %eax, %eax
+00001094  0f af c0                              imul %eax, %eax
+00001097  b9 ff ff ff ff                        mov $-0x01, %ecx
+0000109C  48 3b c1                              cmp %rcx, %rax
+0000109F  0f 86 01 00 00 00                     jbe 0x00000000000010A6
+000010A5  cc                                    int3
+000010A6  48 b9 00 00 00 00 00 80 f8 ff         mov $-0x7800000000000, %rcx
+000010B0  48 0b c8                              or %rax, %rcx
 \end{lstlisting}
 
 \begin{lstlisting}[float,caption={A test function for the \texttt{sqrt} instruction},label={lst:testsqrt},language=JavaScript]
@@ -464,15 +464,20 @@ return a;
 \end{lstlisting}
 
 \begin{lstlisting}[float,caption={The compiled result of the \texttt{sqrt} test function},label={lst:compilesqrt}]
-0x62a1e00040aa    6a  c5fb104103           vmovsd xmm0,[rcx+0x3]
-0x62a1e00040af    6f  c5fb51c0             vsqrtsd xmm0,xmm0,xmm0
-0x62a1e00040b3    73  c5fb51c0             vsqrtsd xmm0,xmm0,xmm0
-0x62a1e00040b7    77  c5fb51c0             vsqrtsd xmm0,xmm0,xmm0
-0x62a1e00040bb    7b  c5fb51c0             vsqrtsd xmm0,xmm0,xmm0
-0x62a1e00040bf    7f  c5fb51c0             vsqrtsd xmm0,xmm0,xmm0
-0x62a1e00040c3    83  c5fb2cc8             vcvttsd2si rcx,xmm0
-0x62a1e00040c7    87  c5832ac9             vcvtlsi2sd xmm1,xmm15,rcx
-0x62a1e00040cb    8b  c5f92ec8             vucomisd xmm1,xmm0
+00001071  48 8b 45 28                           movq 0x28(%rbp), %rax
+00001075  49 89 c3                              mov %rax, %r11
+00001078  49 c1 eb 2f                           shr $0x2F, %r11
+0000107C  41 81 fb f0 ff 01 00                  cmp $0x1FFF0, %r11d
+00001083  0f 87 1c 03 00 00                     jnbe 0x00000000000013A5
+00001089  c4 e1 f9 6e c0                        vmovq %rax, %xmm0
+0000108E  f2 0f 51 c0                           sqrtsd %xmm0, %xmm0
+00001092  f2 0f 51 c0                           sqrtsd %xmm0, %xmm0
+00001096  f2 0f 51 c0                           sqrtsd %xmm0, %xmm0
+0000109A  f2 0f 51 c0                           sqrtsd %xmm0, %xmm0
+0000109E  f2 0f 51 c0                           sqrtsd %xmm0, %xmm0
+000010A2  c4 e1 f9 7e c1                        vmovq %xmm0, %rcx
+000010A7  49 bb ff ff ff ff 00 00 f8 ff         mov $-0x7FFFF00000001, %r11
+000010B1  4c 3b d9                              cmp %rcx, %r11
 \end{lstlisting}
 
 A test function in Listing~\ref{lst:testimul} contains multiple \texttt{Math.imul()} calls.
@@ -486,13 +491,18 @@ As described in Section~\ref{sec:browsersecurity}, there are some challenges to 
 This chapter explains how we work around these challenges to implement the JavaSQUIP covert channel.
 
 \section{General architecture}
-\label{sec:general-architecture}
+\label{sec:general-architecture}x`
 We build a showcase for JavaSQUIP consisting of two web pages: one receiver and one sender.
 The aim is to build a showcase that, while showing the capabilities of the covert channel,
 should reflect as realistic a scenario as possible to also prove the feasibility of a side channel attack.
 The difference between a conventional side channel attack and a covert channel is that a side channel attack involves a (non-cooperating) victim and
 an attacker, while covert channels have a cooperating pair of sender and receiver.
-% todo example of cooperation
+
+One example where an attacker would use this sender-receiver pair is data exfiltration.
+The sender runs on a page where it can obtain confidential information,
+but cannot transmit it back to the attacker because of cross-origin resource sharing (CORS)~\cite{cors} restrictions.
+It instead sends the data to a receiver on a different website with less strict CORS settings using JavaSQUIP.
+From here, the received data can be sent back to the attacker.
 
 The sender in the showcase corresponds to the victim in a side channel scenario.
 Since a victim does not cooperate in an attack, the sender was kept as simple as possible.
@@ -527,10 +537,26 @@ since there is no more precise timestamp in JavaScript which is synchronised acr
 The receiver also needs a way to measure the small variations in timing whenever a scheduler queue gets blocked.
 Since no timing function in JavaScript gives a better accuracy than 0.1ms, we need to provide our own timing.
 
+
+\begin{lstlisting}[float,caption={The code for the counting thread},label={lst:countingthread}]
+self.onmessage = function(event) {
+  console.log("Hello from counter!");
+  let buffer = event.data;
+  let arr = new Uint32Array(buffer);
+  let counter = 0|0;
+  for(;;)
+  {
+    counter = ((counter|0)+1)|0;
+    arr[0] = counter|0;
+  }
+}
+\end{lstlisting}
+
 We solve this with a counting worker, which continually increases one variable in the \texttt{SharedArrayBuffer}.
 As explained in section \ref{subsec:multithreading}, the other receiver workers can then access this counter and use it to measure execution times with adequate accuracy.
+Listing~\ref{lst:countingthread} shows the counting thread's code.
+After initialisation, it continually increases the counting variable and stores it to the \texttt{SharedArrayBuffer}.
 The paper on \textit{Fantastic Timers}~\cite{Schwarz2017Timers} explains the concept in more depth.
-% todo code snippet of counting worker
 
 \section{Co-locating with the sender}
 \label{sec:co-location}
@@ -1169,6 +1195,8 @@ We have shown that there are few options for counteracting JavaSQUIP and similar
 All of the solutions proposed in this paper have requirements that make them unlikely to be implemented.
 Thus, we can expect JavaSQUIP -- along with many other browser-based covert channels --
 to remain viable for the near future.
+
+% todo maybe bissl wos ueba implications
 
 %--- BIBLIOGRAPHY --------------------------------------------------------------
 \pagebreak
