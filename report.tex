@@ -93,7 +93,7 @@
 \thesisauthor{Christoph Royer}
 
 % Title of your thesis:
-\thesistitle{JavaSQUIP\\Implementing a scheduler queue-based covert channel in JavaScript}
+\thesistitle{JavaSQUIP\\Implementing a Scheduler-Queue Covert Channel in JavaScript}
 
 % Date of completion:
 \thesisdate{October 2024}
@@ -185,7 +185,7 @@ In this thesis, we contribute the following:
 In Section~\ref{ch:background}, we provide relevant background information on scheduler queue contention,
 resulting in several challenges that we will have to overcome when implementing JavaSQUIP.
 Section~\ref{ch:implementation} shows how we handle these challenges.
-Section~\ref{ch:optimisation} continues by explaining how we optimised JavaSQUIP for speed and reliability.
+Section~\ref{ch:optimization} continues by explaining how we optimised JavaSQUIP for speed and reliability.
 We go into more detail on the mode and results of our evaluation of JavaSQUIP in Section~\ref{ch:evaluation}.
 In Section~\ref{ch:comparison}, we present comparable covert channels and compare them to JavaSQUIP.
 We propose ways to prevent JavaSQUIP in Section~\ref{ch:countermeasures} and discuss whether they are feasible.
@@ -350,7 +350,7 @@ Because of this advantage, JavaSQUIP aims to port this vulnerability to a browse
 \section{JavaScript in a browser environment}
 \label{sec:javascriptenv}
 JavaScript~\cite{javascript} is the main scripting language for running code in a website.
-It is an interpreted language, which means that the browser generally executes code without compilation into a binary format.
+It is an interpreted language, which means that the browser reads in code in text form and executes it directly.
 JavaScript developers benefit from writing high-level platform-independent code,
 while the interpreter takes care of executing it on the user's machine.
 
@@ -380,12 +380,12 @@ All three of these are needed to mount the SQUIP attack.
 \subsection{Timing functions}\label{subsec:timingjs}
 There are two contenders for timing measurements in JavaScript: \texttt{Date.now()}~\cite{datenow} and \texttt{performance.now()}~\cite{performancenow}.
 
-\texttt{Date.now()}~\cite{datenow} gives a synchronised Unix epoch timestamp with millisecond accuracy.
+\texttt{Date.now()}~\cite{datenow} returns a synchronised Unix epoch timestamp with millisecond accuracy.
 The Unix epoch time is essentially the time elapsed since January 1, 1970 and is the same for all processes on a computer.
 This makes \texttt{Date.now()} a cross-instance synchronised timestamp.
 
 The \texttt{performance.now()}~\cite{performancenow} function measures the time elapsed since the \textit{time origin} of the current context.
-This means that \texttt{performance.now()} gives different values between browser instances, and even between a main thread and its worker threads.
+This means that \texttt{performance.now()} results in different values between browser instances, and even between a main thread and its worker threads.
 Timing information from \texttt{performance.now()} can still be synchronised;
 The \textit{time origin} of the context is given by the \texttt{performance.timeOrigin()}~\cite{performancetimeorigin} property.
 This way, the timestamps from \texttt{performance.now()} can be globally synchronised.
@@ -396,11 +396,11 @@ For example, in Firefox it has an accuracy of 1 ms, and in Chrome it measures wi
 Consequently, both \texttt{Date.now()} and \texttt{performance.now()} give a synchronised timestamp with 1 ms accuracy, making them viable options for synchronisation.
 
 \subsection{Multithreading}\label{subsec:multithreading}
-JavaScript does not support low-level control over threading, but the \texttt{Web Workers} API~\cite{webworkers} allows the user to create workers running in a separate thread.
+JavaScript does not support low-level control over threading, however the \texttt{Web Workers} API~\cite{webworkers} allows the user to create workers running in a separate thread.
 An instantiated worker runs a predefined script.
 The main thread can interface with the worker by calling the \texttt{Worker.postMessage()} function.
 Data can be shared across workers using a \texttt{SharedArrayBuffer}~\cite{sharedarraybuffer}.
-There is no support for selecting a core on which a worker is run on, presenting a challenge to co-locate with the sender.
+There is no support for selecting the core on which a worker is run, presenting a challenge to co-locate with the sender.
 
 Creating a \texttt{SharedArrayBuffer} is restricted in two ways: the browser window needs to be SSL-encrypted, and it needs to restrict some Cross-Origin requests.
 Nevertheless, this is not a problem for an attacker on any site that provides \texttt{https} and where all code comes from a single origin.
@@ -417,10 +417,6 @@ This means that a simple invocation of a multiplication like \texttt{a * b;} in 
 Rather, \texttt{Math.imul(a, b)}~\cite{mathimul} gives the user a lower-level command:
 It interprets the parameters as 32~bit integers and multiplies them as such, resulting in an \texttt{imul} instruction on the CPU.
 
-The functions used for creating specific instructions are run repeatedly during data transmission.
-This ensures that they are converted into binary code by the JIT compiler (see Section~\ref{sec:javascriptenv}).
-We verify which instructions were generated by running code through IonMonkey -- the optimizing compiler used in Firefox --
-using Firefox' js-shell.
 
 \begin{lstlisting}[float,caption={A test function for the \texttt{imul} instruction},label={lst:testimul},language=JavaScript]
 function test(a) {
@@ -462,9 +458,6 @@ return a;
 \end{lstlisting}
 
 \begin{lstlisting}[float,caption={The compiled result of the \texttt{sqrt} test function},label={lst:compilesqrt}]
-00001071  48 8b 45 28                           movq 0x28(%rbp), %rax
-00001075  49 89 c3                              mov %rax, %r11
-00001078  49 c1 eb 2f                           shr $0x2F, %r11
 0000107C  41 81 fb f0 ff 01 00                  cmp $0x1FFF0, %r11d
 00001083  0f 87 1c 03 00 00                     jnbe 0x00000000000013A5
 00001089  c4 e1 f9 6e c0                        vmovq %rax, %xmm0
@@ -475,6 +468,12 @@ return a;
 0000109E  f2 0f 51 c0                           sqrtsd %xmm0, %xmm0
 000010A2  c4 e1 f9 7e c1                        vmovq %xmm0, %rcx
 \end{lstlisting}
+
+
+The functions used for creating specific instructions are run repeatedly during data transmission.
+This ensures that they are converted into binary code by the JIT compiler (see Section~\ref{sec:javascriptenv}).
+We verify which instructions were generated by running code through IonMonkey -- the optimizing compiler used in Firefox --
+using Firefox' js-shell.
 
 A test function in Listing~\ref{lst:testimul} contains multiple \texttt{Math.imul()} calls.
 The resulting binary in Listing~\ref{lst:compileimul} contains the \texttt{imul} instruction.
@@ -501,7 +500,7 @@ It instead sends the data to a receiver on a different website with less strict 
 From here, the received data can be sent back to the attacker.
 
 The sender in the showcase corresponds to the victim in a side channel scenario.
-Since a victim does not cooperate in an attack, the sender was kept as simple as possible.
+Since a victim does not cooperate in a side-channel attack with an uncooperative sender, the sender is kept as simple as possible.
 It consists of one thread, sending one bit per timeslice (see Section~\ref{sec:accurate-timing}) via issuing \texttt{Math.imul()} instructions or not.
 
 The receiver represents the attacker.
@@ -585,37 +584,37 @@ Figure~\ref{fig:colocation} illustrates one possible configuration of threads on
 
 To figure out which receiver is the one co-located with the sender,
 we need to take advantage of some characteristic of the transmission.
-With some optimisations of the receiver workers -- described closer in Section~\ref{sec:reducecontention} --
+With some optimizations of the receiver workers -- described closer in Section~\ref{sec:reducecontention} --
 we are able to get the contention of two co-located receiver workers very low.
 The counting thread does not cause much contention either.
-This means that if a \texttt{1} is sent, the sender will cause the highest scheduler queue contention level -- i.e. the longest execution time --
+This means that if a '\texttt{1}' is sent, the sender will cause the highest scheduler queue contention level -- i.e. the longest execution time --
 among all the physical cores.
 Detecting the correct receiver worker is now a matter of selecting the receiver with the highest contention;
-this will correctly identify the co-located receiver if a \texttt{1} is sent, and a random receiver if a \texttt{0} is sent.
-Since in this case all receivers report low contention, a \texttt{0} is still registered regardless of the selected receiver.
+this will correctly identify the co-located receiver if a '\texttt{1}' is sent, and a random receiver if a '\texttt{0}' is sent.
+Since in this case all receivers report low contention, a '\texttt{0}' is still registered regardless of the selected receiver.
 
 \begin{figure}
     \centering
     \includegraphics[width=0.75\textwidth]{figures/contentiontest}
 
-    \caption{Average execution time per timeslice (counting thread ticks) during a test run of sending alternating \texttt{0}'s and \texttt{1}'s}
+    \caption{Average execution time per timeslice (counting thread ticks) during a test run of sending alternating '\texttt{0}' and '\texttt{1}' bits}
     \label{fig:contentiontest}
     \centering
     \includegraphics[width=0.75\textwidth]{figures/contentioncoalesced}
 
-    \caption{Average execution time per timeslice (ticks) of the co-located receiver during three test runs of sending alternating \texttt{0}'s and \texttt{1}'s}
+    \caption{Average execution time per timeslice (ticks) of the co-located receiver during three test runs of sending alternating '\texttt{0}' and '\texttt{1}' bits}
     \label{fig:contentioncoalesced}
 \end{figure}
 
 Figure~\ref{fig:contentiontest} displays the contention of each receiver for each timeslice.
 One can easily see that receiver 5 is co-located with the sender;
-it registers alternating high and low contention, in accordance with the alternating \texttt{1}'s and \texttt{0}'s sent by the sender.
+it registers alternating high and low contention, in accordance with the alternating '\texttt{1}' and '\texttt{0}' bits sent by the sender.
 Meanwhile, the contention measured by the other receivers stays low.
 
 \section{Targeting a scheduler queue}
 JavaSQUIP targets AMD Zen~2, Zen~3 and Zen~4;
 these architectures support multiplication only on ALU1~\cite{AMD2020OptimizationEPYC7003}.
-When sending a 1, JavaSQUIP makes multiple codependent calls to \texttt{Math.imul()}, which translate to the \texttt{imul} instruction.
+When sending a '\texttt{1}' bit, JavaSQUIP makes multiple codependent calls to \texttt{Math.imul()}, which translate to the \texttt{imul} instruction.
 This fills up the scheduler queue of ALU1, eventually causing a queue stall.
 
 \begin{lstlisting}[float,caption={The functions \texttt{send\_zero()} and \texttt{send\_one()}},label={lst:sendzeroone},language=JavaScript]
@@ -702,7 +701,7 @@ while \texttt{send\_zero()} only waits until the timeslice is over.
 
 \section{Detecting scheduler queue contention}
 \label{sec:detect-sqc}
-The receiving process needs to detect whether the sender has sent a \texttt{1} or a \texttt{0},
+The receiving process needs to detect whether the sender has sent a '\texttt{1}' or a '\texttt{0}',
 which is equivalent to detecting scheduler queue contention.
 This is implemented by issuing several \texttt{imul} instructions,
 and measuring the delay with the help of a separate counting thread.
@@ -724,10 +723,10 @@ In the case that no stall occurs, the additional \texttt{sqrt} instructions do n
 since they target a different scheduler queue.
 
 In line \texttt{27}, we do not check the actual difference between \texttt{start\_time} and \texttt{end\_time},
-but rather only return a \texttt{1} if the two are different, and a \texttt{0} otherwise.
+but rather only return a '\texttt{1}' if the two are different, and a '\texttt{0}' otherwise.
 Since we can assume that a difference in \texttt{start\_time} and \texttt{end\_time} is an indicator of scheduler queue contention,
 this gives a good measurement;
-a \texttt{0} is returned when there is no contention, and longer execution times do not throw off the average,
+a '\texttt{0}' is returned when there is no contention, and longer execution times do not throw off the average,
 since at maximum a \texttt{1} can be returned.
 Returning the actual difference of the counting thread values, i.e. returning the actual execution time, mostly gives equal results.
 Some measurements are however thrown off by longer delays in execution,
@@ -736,14 +735,14 @@ which increases the average execution time unproportionally.
 The \texttt{squip} function is run 100 times per timeslice, summing up the return values of each iteration.
 At the end of the timeslice, this sum is divided by 100,
 resulting in the relative likelihood of a queue stall between time measurements, or \textit{stall likelihood}.
-If the stall likelihood is above the threshold (see Section~\ref{sec:delaythreshold}), a \texttt{1} is registered, else a \texttt{0}.
+If the stall likelihood is above the threshold (see Section~\ref{sec:delaythreshold}), a '\texttt{1}' is registered, otherwise a '\texttt{0}'.
 Figure~\ref{fig:contentioncoalesced} shows that scheduler queue contention usually affects around $30-50~\%$ of the tries in a timeslice.
 Since this metric is closely related to the execution time of the measurement, the two terms are used interchangeably in the rest of this thesis.
 
 
-%--- OPTIMISATION --------------------------------------------------------------
-\chapter{Optimisation}
-\label{ch:optimisation}
+%--- optimization --------------------------------------------------------------
+\chapter{Optimization}
+\label{ch:optimization}
 \begin{figure}
 \centering
 \includegraphics[width=0.9\textwidth]{figures/contentionhistogram}
@@ -752,27 +751,29 @@ Since this metric is closely related to the execution time of the measurement, t
 \label{fig:contentionhistogram}
 \end{figure}
 
-JavaSQUIP is intended to show SQUIP's potential as an attack in a browser setting.
+JavaSQUIP is intended to show the potential of the SQUIP exploit as an attack in a browser setting.
 Because of this, we aim to make it as fast and stable as possible.
 The transmission speed is limited by the environment, as the time slices cannot be smaller than 1ms.
 The remaining settings and features are adjusted so the transmission is as accurate as possible at the speed of 1000 bits/s.
 
-\section{Delay threshold}
+% todo continue here
+
+\section{Delay Threshold}
 \label{sec:delaythreshold}
 
 The simplest parameter in SQUIP is the delay threshold.
-It determines whether the summed up delay of a timeslice is registered as a \texttt{0} or a \texttt{1}.
-If the threshold is too high or too low, results are skewed towards registering a \texttt{0} or a \texttt{1} respectively.
+It determines whether the summed up delay of a timeslice is registered as a '\texttt{0}' or a '\texttt{1}'.
+If the threshold is too high or too low, results are skewed towards registering a '\texttt{0}' or a '\texttt{1}' respectively.
 
 To tune this parameter, the resulting bitstream is checked against the actual sent stream.
-All of the bits that are wrongly registered as \texttt{1} or wrongly \texttt{0} are tallied up separately.
-Then the delay threshold is adjusted until faulty \texttt{1}'s and faulty \texttt{0}'s are approximately equally frequent,
+All of the bits that are wrongly registered as '\texttt{1}' or wrongly '\texttt{0}' are tallied up separately.
+Then the delay threshold is adjusted until faulty '\texttt{1}' bits and faulty '\texttt{0}' bits are approximately equally frequent,
 meaning that no skew toward high or low bits is present and the delay threshold is set optimally.
 
 Figure~\ref{fig:contentionhistogram} shows the distribution of execution times per timeslice with and without scheduler queue contention.
 Timeslices without scheduler queue contention show very short execution times, except for a small number of outliers.
 Execution times for timeslices with scheduler queue contention vary more, though they are clearly separable from those without contention.
-A threshold value of $0.21$ is optimal, giving the best margin for \texttt{0}- and \texttt{1}-transmissions.
+A threshold value of $0.21$ is optimal, giving the best margin for '\texttt{0}' and '\texttt{1}' transmissions.
 
 
 \section{Number of instructions for a queue stall}
@@ -782,11 +783,11 @@ it needs to be big enough to cause a queue stall and a spike in execution time,
 yet it needs to be as small as possible to minimise chance of a stall bleeding into the following timeslice.
 
 To tune the number of \texttt{imul} instructions, a bleed-over test is constructed.
-The test consists of a string of alternating \texttt{1}s and \texttt{0}s, so contrasts between different bits could be easily observed.
+The test consists of a string of alternating '\texttt{1}' and '\texttt{0}' bits, so contrasts between different bits could be easily observed.
 The amount of \texttt{imul} instructions is tuned by successively reducing the number and running a test.
 The point where no spike in execution time is registered any more is set as the lower limit for the amount of \texttt{imul} instructions.
 Figure~\ref{fig:contentiontest} shows the final tuned system;
-the spikes for a \texttt{1} are pronounced, while the execution time in a \texttt{0}-timeslice is only slightly higher than for the remaining receivers.
+the spikes for a '\texttt{1}' are pronounced, while the execution time in a '\texttt{0}' timeslice is only slightly higher than for the remaining receivers.
 For Zen~4 systems, 200 co-dependent \texttt{imul} instructions are the optimum.
 Small changes to the number of instructions do not create meaningful differences in performance.
 Figure~\ref{fig:contentioncoalesced} illustrates that this system is quite robust across different tests.
@@ -801,7 +802,7 @@ See Section~\ref{sec:detect-sqc} for a detailed explanation of the stall detecti
 To improve the signal-to-noise ratio, the receivers should create as little contention as possible themselves.
 This is helpful in the transmission, as it reduces the contention for two co-located receivers,
 maximizing the contrast to the receiver that is co-located with the sender (see Section~\ref{sec:co-location})
-Three optimisations are employed in the receiver worker: adjusting the \textit{number of stall instructions},
+Three optimizations are employed in the receiver worker: adjusting the \textit{number of stall instructions},
 using \textit{buffer instructions}, and a \textit{delay loop}.
 
 \paragraph{Number of stall instructions.}
@@ -810,7 +811,7 @@ On the other hand, too many instructions would create contention themselves, so 
 A detection test is set up to determine the minimum amount of instructions to be able to detect contention by the sender.
 
 The detection test is constructed similarly to the bleed-over test:
-alternating \texttt{1}s and \texttt{0}s are received, and the delays measured.
+alternating '\texttt{1}' and '\texttt{0}' bits are received, and the delays measured.
 The number of \texttt{imul} instructions in the receiver worker is reduced until no signal is retrievable,
 resulting in a lower bound for the number of \texttt{imul} instructions in the receiver worker.
 For Zen~4, the optimum number of \texttt{imul} instructions is $20$.
@@ -838,7 +839,7 @@ Listing~\ref{lst:delayloop} shows the delay loop that is executed after each mea
 
 
 Figure~\ref{fig:contentiontest} demonstrates these measures working:
-Receiver 5 -- which is co-located with the sender -- receives a clean signal of alternating \texttt{1}'s and \texttt{0}'s.
+Receiver 5 -- which is co-located with the sender -- receives a clean signal of alternating '\texttt{1}' and '\texttt{0}' bits.
 Meanwhile, all the remaining receivers -- which are co-located either with each other or with the counting thread -- show very little contention.
 
 
@@ -858,7 +859,7 @@ The test setup consists of two webpages: a sender and a receiver.
 The sender simulates the target, and the receiver simulates a page that is controlled by the attacker.
 Because the attacker has little or no control over the target, we keep the sender page minimal.
 The sender has only one working thread.
-The working thread is sending either a 0 (no action) or a 1 (contention with codependent \texttt{Math.imul()} calls) for each timeslice.
+The working thread is sending either a '\texttt{0}' (no action) or a '\texttt{1}' (contention with codependent \texttt{Math.imul()} calls) for each timeslice.
 With more control over the receiver, the attacker can ensure co-location from this side.
 For our tests on the \textit{AMD Ryzen 7 5800X}(Zen~3) and \textit{AMD Ryzen 7 7700X}(Zen~4), we need 14 receiving workers.
 An explanation for the number of receivers needed can be found in Chapter~\ref{sec:co-location}.
@@ -868,7 +869,7 @@ The preamble is a sequence of the numbers from 100 through 109.
 If the receiver sees two ascending bytes between 100 and 109, it is highly likely that this is part of the preamble --
 a message was detected.
 For easier evaluation of the transmission accuracy, the message is also stored on the receiver's side,
-so that the number of "faulty \texttt{1}" and "faulty \texttt{0}" bits can be automatically calculated.
+so that the number of "faulty '\texttt{1}'" and "faulty '\texttt{0}'" bits can be automatically calculated.
 In our test setup, messages of 500 random bytes are sent at a transmission speed of 1000bits/s.
 This results in a transmission time of $\frac{500 \times 8}{1000} = 4$ seconds.
 
@@ -905,7 +906,7 @@ As a result, co-location is never detected and transmission of data is not possi
     \centering
     \includegraphics[width=0.75\textwidth]{figures/contentiontest_stress}
 
-    \caption{Execution time per timeslice during a test run of sending alternating \texttt{0}'s and \texttt{1}'s with \texttt{stress --cpu 1}}
+    \caption{Execution time per timeslice during a test run of sending alternating '\texttt{0}' and '\texttt{1}' bits with \texttt{stress --cpu 1}}
     \label{fig:contentiontest_stress}
 \end{figure}
 
@@ -974,7 +975,7 @@ The following ways of sharing a renderer process have been found:
 \begin{itemize}
     \item embedding in an Iframe
     \item creation of the new page by the renderer, e.g. through a link-click, or scripted redirect
-    \item reuse of renderers by Chrome for resource optimisation
+    \item reuse of renderers by Chrome for resource optimization
 \end{itemize}
 
 Having one of these is possible, though it does limit the applicability of this covert channel.
@@ -999,7 +1000,7 @@ This allows the attacker to infer that a hardware interrupt was triggered.
 To convert this side channel into a covert channel,
 the researchers needed a hardware interrupt that the sending web page could trigger.
 They found that issuing an \texttt{XMLHttpRequest} to an invalid site would cause an I/O interrupt.
-The sender would now issue these requests to send a \texttt{1} and remain idle to send a \texttt{0}.
+The sender would now issue these requests to send a '\texttt{1}' and remain idle to send a '\texttt{0}'.
 The receiver measures the bits the same way as described above --
 by continually looking up the value of \texttt{performance.now()}.
 
@@ -1017,7 +1018,7 @@ thus delaying the measurement loop.
 In \textit{Port Contention Goes Portable}~\cite{Rokicki2022webport},
 Rokicki et al. showcased a feasible application of port contention in a browser-based covert channel.
 As opposed to the 1-sender multi-receiver approach of JavaSQUIP (see Section~\ref{sec:general-architecture} and Section~\ref{sec:co-location}),
-their solution features 1 receiver and multiple senders.
+their solution features one receiver and multiple senders.
 The measurement loop of the receiver was implemented in \textit{WebAssembly} to directly issue a particular instruction.
 Since the single receiver is sandboxed in JavaScript, it can neither bind to a physical core, nor know which core it is on.
 Consequently, the sender creates as many threads as there are cores on the machine.
