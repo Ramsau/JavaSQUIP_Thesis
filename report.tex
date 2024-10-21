@@ -503,6 +503,7 @@ The sender in the showcase corresponds to the victim in a side channel scenario.
 Since a victim does not cooperate in a side-channel attack with an uncooperative sender, the sender is kept as simple as possible.
 It consists of one thread, sending one bit per timeslice (see Section~\ref{sec:accurate-timing}) via issuing \texttt{Math.imul()} instructions or not.
 
+\pagebreak
 The receiver represents the attacker.
 The assumption is that an attacker can execute arbitrary scripts, for example as an interactive advertisement on a website.
 Given this, the attacker can get one thread co-located with the victim and exploit the SQUIP side channel to gain information.
@@ -729,7 +730,7 @@ this gives a good measurement;
 a '\texttt{0}' is returned when there is no contention, and longer execution times do not throw off the average,
 since at maximum a \texttt{1} can be returned.
 Returning the actual difference of the counting thread values, i.e. returning the actual execution time, mostly gives equal results.
-Some measurements are however thrown off by longer delays in execution,
+Some measurements are, however, thrown off by longer delays in execution,
 which increases the average execution time unproportionally.
 
 The \texttt{squip} function is run 100 times per timeslice, summing up the return values of each iteration.
@@ -753,10 +754,9 @@ Since this metric is closely related to the execution time of the measurement, t
 
 JavaSQUIP is intended to show the potential of the SQUIP exploit as an attack in a browser setting.
 Because of this, we aim to make it as fast and stable as possible.
-The transmission speed is limited by the environment, as the time slices cannot be smaller than 1ms.
+The transmission speed is limited by the environment, as the time slices cannot be smaller than 1~ms.
 The remaining settings and features are adjusted so the transmission is as accurate as possible at the speed of 1000 bits/s.
 
-% todo parameter table
 
 \section{Delay Threshold}
 \label{sec:delaythreshold}
@@ -773,7 +773,7 @@ meaning that no skew toward high or low bits is present and the delay threshold 
 Figure~\ref{fig:contentionhistogram} shows the distribution of execution times per timeslice with and without scheduler queue contention.
 Timeslices without scheduler queue contention show very short execution times, except for a small number of outliers.
 Execution times for timeslices with scheduler queue contention vary more, though they are clearly separable from those without contention.
-The empirical optimum on our test setup (see Section~\ref{sec:testsetup}) is $0.21$.
+The empirical optimum on our test setup (see Section~\ref{sec:testsetup}) is \textbf{0.21}.
 It gives the best margin for '\texttt{0}' and '\texttt{1}' transmissions.
 
 
@@ -781,7 +781,7 @@ It gives the best margin for '\texttt{0}' and '\texttt{1}' transmissions.
 The sender blocks a targeted scheduler queue by sending a large number of instructions to it.
 The number of instructions is another tunable parameter:
 it needs to be big enough to cause a queue stall and a spike in execution time,
-yet it needs to be as small as possible to minimize chance of a stall bleeding into the following timeslice.
+yet it needs to be as small as possible to minimize the chance of a stall bleeding into the following timeslice.
 
 To tune the number of \texttt{imul} instructions, a bleed-over test is constructed.
 The test consists of a string of alternating '\texttt{1}' and '\texttt{0}' bits, so contrasts between different bits could be easily observed.
@@ -789,7 +789,7 @@ The amount of \texttt{imul} instructions is tuned by successively reducing the n
 The point where no spike in execution time is registered any more is set as the lower limit for the amount of \texttt{imul} instructions.
 Figure~\ref{fig:contentiontest} shows the final tuned system;
 the spikes for a '\texttt{1}' are pronounced, while the execution time in a '\texttt{0}' timeslice is only slightly higher than for the remaining receivers.
-For Zen~4 systems, 200 co-dependent \texttt{imul} instructions are the optimum.
+For our test setup, \textbf{200} co-dependent \texttt{imul} instructions are the optimum.
 Small changes to the number of instructions do not create meaningful differences in performance.
 Figure~\ref{fig:contentioncoalesced} illustrates that this system is quite robust across different tests.
 
@@ -802,7 +802,7 @@ See Section~\ref{sec:detect-sqc} for a detailed explanation of the stall detecti
 
 To improve the signal-to-noise ratio, the receivers should create as little contention as possible themselves.
 This is helpful in the transmission, as it reduces the contention for two co-located receivers,
-maximizing the contrast to the receiver that is co-located with the sender (see Section~\ref{sec:co-location})
+maximizing the contrast to the receiver that is co-located with the sender (see Section~\ref{sec:co-location}).
 Three optimizations are employed in the receiver worker: adjusting the \textit{number of stall instructions},
 using \textit{buffer instructions}, and a \textit{delay loop}.
 
@@ -815,14 +815,14 @@ The detection test is constructed similarly to the bleed-over test:
 alternating '\texttt{1}' and '\texttt{0}' bits are received, and the delays measured.
 The number of \texttt{imul} instructions in the receiver worker is reduced until no signal is retrievable,
 resulting in a lower bound for the number of \texttt{imul} instructions in the receiver worker.
-For Zen~4, the optimum number of \texttt{imul} instructions is $20$.
+For Zen~4, the optimum number of \texttt{imul} instructions is \textbf{20}.
 
 \paragraph{Buffer instructions.}
-In the measurement function, 10 \texttt{sqrt} instructions serve as a buffer to delay the \texttt{imul} instrucions:
+In the measurement function, \textbf{10} \texttt{sqrt} instructions serve as a buffer to delay the \texttt{imul} instructions:
 they delay the execution, while not creating contention on ALU1.
 This means that the effect of a stalled queue is more pronounced, because the \texttt{sqrt} instructions will also be stalled.
 On the other hand, they have little effect on an unstalled queue, since they operate on a different scheduler.
-The implementation can be seen in Section~\ref{sec:detect-sqc}
+The implementation can be seen in Section~\ref{sec:detect-sqc}.
 
 \paragraph{Delay loop.}
 \begin{lstlisting}[float,caption={The delay loop after a measurement},label={lst:delayloop},language=JavaScript]
@@ -836,7 +836,7 @@ while(k < 1000|0) {
 A delay loop is added after each measurement to clearly separate measurements.
 To this effect, we fill the scheduler queue with other operations for a short time between measurements.
 Since no normal delay function gives a better accuracy than 1~ms, a busy-waiting loop is used.
-Listing~\ref{lst:delayloop} shows the delay loop that is executed after each measurement.
+Listing~\ref{lst:delayloop} shows the delay loop that is repeated \textbf{1000} times after each measurement.
 
 
 Figure~\ref{fig:contentiontest} demonstrates these measures working:
@@ -858,7 +858,7 @@ we test on an \textit{AMD Ryzen 7 5800X} as representative for Zen~3 and an \tex
 
 The test setup consists of two webpages: a sender and a receiver.
 The sender simulates the target, and the receiver simulates a page that is controlled by the attacker.
-Because the attacker has little or no control over the target, we keep the sender page minimal.
+The attacker has little or no control over the target -- we keep the sender page minimal as a consequence.
 The sender has only one working thread.
 The working thread is sending either a '\texttt{0}' (no action) or a '\texttt{1}' (contention with codependent \texttt{Math.imul()} calls) for each timeslice.
 With more control over the receiver, the attacker can ensure co-location from this side.
@@ -870,7 +870,7 @@ If the receiver sees two ascending bytes between 100 and 109, it is highly likel
 a message was detected.
 For easier evaluation of the transmission accuracy, the message is also stored on the receiver's side,
 so that the number of "faulty '\texttt{1}'" and "faulty '\texttt{0}'" bits can be automatically calculated.
-In our test setup, messages of 500 random bytes are sent at a transmission speed of 1000bits/s.
+In our test setup, messages of 500 random bytes are sent at a transmission speed of 1000~bits/s.
 This results in a transmission time of $\frac{500 \times 8}{1000} = 4$ seconds.
 
 \section{Speed}
@@ -911,14 +911,14 @@ As a result, co-location is never detected and transmission of data is not possi
 \end{figure}
 
 \paragraph{Noise.}
-For measuring noise resistance, we only take into account those transmissions where the preamble was recognized.
+For measuring noise resistance, we only take those transmissions into account where the preamble was recognized.
 This results in an average transmission accuracy of $99.2~\%$ on Zen~3, and $99.3~\%$ on Zen~4.
 With \texttt{stress --cpu 1}, we observed an accuracy of $74~\%$.
 
 Figure~\ref{fig:contentiontest_stress} shows the effect of outside CPU stress on the measurement.
 Although the \texttt{stress} command creates more noise in the measurement, the overall contention levels go down (compare with Figure~\ref{fig:contentiontest}).
 This is because \texttt{stress} does not target a specific scheduler queue, but instead takes up CPU time with a varied set of instructions.
-The result is more relocation of threads (the sending thread is first co-located with receiver 13, later with receiver 7), and less contention.
+The result is more relocation of threads (the sending thread is co-located with receiver 13 at first, later with receiver 7), and less contention.
 
 \paragraph{Effective transmission rate.}
 We define the \textit{effective transmission rate} as the product of a channel's transmission rate
@@ -932,7 +932,8 @@ depending on the transmission protocol and error correction.
 Nevertheless, it gives a good estimate to compare usable bandwidth between different covert channels.
 
 For JavaSQUIP, we take into account both the co-location probability and the transmission accuracy.
-By multiplying these values, we get a cumulative error rate of $1~-~88.7~\%~*~99.2~\%~=~0.1201$ for Zen~3
+By multiplying these values, we calculate the \textit{cumulative error rate} -- the probability that a given bit is flipped during transmission.
+The cumulative error rate is $1~-~88.7~\%~*~99.2~\%~=~0.1201$ for Zen~3
 and $1 - 93.3~\% * 99.3~\% = 0.0745$ for Zen~4.
 
 We calculate an effective transmission rate of 470.36~bits/s on Zen~3:
@@ -964,7 +965,7 @@ while the receiver continually monitors the execution time of a loop that is sen
 
 \section{Event Loops}
 The \textit{Loophole} Timing Attack~\cite{vila2017loophole} uses shared event loops to get timing information.
-An Event loop is a piece of code that continually checks for an event condition
+An event loop is a piece of code that continually checks for an event condition
 and starts registered event handlers if the event has occurred.
 An example would be an event loop that checks for a \textit{Space} key press,
 which starts an event handler to start a video on the website.
@@ -1034,6 +1035,7 @@ Rokicki et al.~\cite{Rokicki2022webport} discussed the possibility of altering t
 They proposed a similar solution to the problem of co-location as the one we have implemented for JavaSQUIP.
 On this basis, they believably argued that this fully web-based attack would have the same transaction speed as the version
 with a native sender at \textbf{200 bits/s}.
+
 They reported a packet loss rate of 5.5~\% and an error rate of 1~\%, resulting in a cumulative error rate of $1 - (1 - 5.5~\%) * (1 - 1~\%) = 0.06445$.
 The resulting effective transmission rate is \textbf{131.03~bits/s}:
 \[200~\text{bits/s} * \left( 1 - \left( 0.0645~log_2 \frac{1}{0.0645} + (1 - 0.0645)~log_2 \frac{1}{1 - 0.0645} \right) \right) = 131.028~\text{bits/s}\]
@@ -1071,13 +1073,14 @@ JavaSQUIP(Zen 4) & 1000 bits/s & 617.63 bits/s\\
 \label{tab:speedcomparison}
 \end{table}
 
-% todo continue here
 \section{Feasibility of JavaSQUIP}
 
 \paragraph{Affected CPUs.}
-JavaSQUIP exploits a vulnerability in the split-scheduler design of AMD's Zen~2, Zen~3 and Zen~4 architectures.
-This means that JavaSQUIP only works on clients running on a CPU with one of these architectures.
-This limits the attack surface significantly, though the number of affected computers is still significant.
+JavaSQUIP exploits a vulnerability in CPUs with split-scheduler design.
+It additionally requires SMT to co-locate the sender with the receiver.
+This means that JavaSQUIP only works on clients running on a CPU with these features present and enabled.
+This limits the attack surface, though the number of affected computers is still significant.
+Gast et al.~\cite{squip} found that AMD's Zen~2, Zen~3 and Zen~4 architectures are affected, along with the Apple M1.
 As of Q3 of 2024, AMD holds a market share of around $33~\%$ in CPUs~\cite{amdmarket}.
 Most of these CPUs run under the Zen~2, Zen~3 and Zen~4 architecture,
 meaning that large portion of current computers is susceptible to this attack.
