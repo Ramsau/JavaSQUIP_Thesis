@@ -1,6 +1,7 @@
 - scheduler queue-based covert channel
 
 ## Sender-receiver image
+- showvase of the JavaSQUIP covert channel
 - reliably, without use of the network
 - breaks browser sandbox
 - security risk
@@ -12,12 +13,16 @@
 ## Zen2 Arch
 - simplified diagram of the way a CPU of AMD's Zen2 family operates
 - SMT
+- two threads/instruction streams
 - uOp
 - scheduler queuing, passing results
 
 - smt widely used
 - what is not as common, is the layout of the schedulers
+- most one big scheduler queue
+- Zen 2,3,4, Apple M1
 - several smaller Schedulers instead
+- reduces complexity, more efficient power usage
 
 - make CPUs more efficient
 - affect each others execution time
@@ -27,17 +32,18 @@
 - smt
 - side channel
 - timing diff in an execution unit
+- cooperating sender-receiver pair
 - receiver issues operations
 - sender delays receivers operations
 
 ## SQUIP
-- SMT in comp with split scheduler
+- SMT in comb with split scheduler
 - up one step in the chain
 - measures scheduler queue overflows
-- almost completely
+- mov instruction
 - queue overflows
 - stall execution
-- big spike
+- big difference in execution time
 
 - drawback: split-scheduler
 - what advantage does squip have?
@@ -67,6 +73,7 @@
 - colocation: bound to be on the same physical core
 
 ## Co-Location
+- possible distribution of threads
 - two logical cores per physical core
 - sender in orange
 - counting thread
@@ -86,6 +93,7 @@
 - true capacity 613.63 bits/s
 
 ## comparison
+- most closely resembles JavaSQUIP
 - Rocicki and Botvinnik
 - raw transmission rate 200 bits/s
 - native code - eliminate uncertainty
@@ -95,6 +103,7 @@
 - true capacity 131.03 bits/s
 
 ## Summary
+- advantage of the JavaSQUIP CC
 - limited to CPUs with SMT and split-scheduler
 - more than 3 times the rate
 - real-time data: monitoring all user inputs

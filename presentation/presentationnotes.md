@@ -74,7 +74,7 @@ Since the sender corresponds to the victim in a non-cooperative side-channel att
 we aimed to keep it as simple as possible, while putting most of the logic in the receiver
 
 ## implementing JavaSQUIP
-To implement a side-channel exploit in JavaScript is a challenge compared to native code,
+To implement a side-channel exploit in JavaScript is more complex compared to native code,
 since many of the low-level features are not available in the browser sandbox.
 Additionally, Browsers nowadays limit the functionality of Javascript for security reasons, 
 so we faced some challenges.
